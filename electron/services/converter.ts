@@ -2,13 +2,15 @@ import { ipcMain } from 'electron'
 import fs from 'fs'
 import path from 'path'
 import mammoth from 'mammoth'
-import TurndownService from 'turndown'
+import { turndown } from './turndownInstance'
+import { extractBase64ImagesFromMarkdown } from './imageExtractor'
 
-const turndown = new TurndownService({
-  headingStyle: 'atx',
-  bulletListMarker: '-',
-  codeBlockStyle: 'fenced',
-})
+const SLOT_LABELS: Record<string, string> = {
+  '起': '起',
+  '承': '承',
+  '転': '転',
+  '結': '結',
+}
 
 async function convertDocxToMarkdown(filePath: string): Promise<string> {
   const buffer = fs.readFileSync(filePath)
@@ -41,12 +43,25 @@ async function convertFile(filePath: string): Promise<string> {
   }
 }
 
+function getSeparator(type: string, slotType?: string): string {
+  switch (type) {
+    case 'heading':
+      return slotType ? `\n\n## ${SLOT_LABELS[slotType] || slotType}\n\n` : '\n\n'
+    case 'none':
+      return '\n\n'
+    case 'hr':
+    default:
+      return '\n\n---\n\n'
+  }
+}
+
 export function setupConverterHandlers() {
   ipcMain.handle('file:convertToMarkdown', async (_event, filePath: string) => {
     return convertFile(filePath)
   })
 
-  ipcMain.handle('file:mergeDocuments', async (_event, slots: any[]) => {
+  ipcMain.handle('file:mergeDocuments', async (_event, slots: any[], options?: any) => {
+    const separator = options?.separator || 'hr'
     const sections: string[] = []
 
     for (const slot of slots) {
@@ -58,9 +73,20 @@ export function setupConverterHandlers() {
         sectionParts.push(md)
       }
 
-      sections.push(sectionParts.join('\n\n'))
+      const sectionContent = sectionParts.join('\n\n')
+
+      if (separator === 'heading') {
+        sections.push(`## ${SLOT_LABELS[slot.type] || slot.type}\n\n${sectionContent}`)
+      } else {
+        sections.push(sectionContent)
+      }
     }
 
-    return sections.join('\n\n---\n\n')
+    const joinSeparator = separator === 'heading' ? '\n\n' : getSeparator(separator)
+    return sections.join(joinSeparator)
+  })
+
+  ipcMain.handle('file:extractImages', async (_event, markdown: string, outputDir: string) => {
+    return extractBase64ImagesFromMarkdown(markdown, outputDir)
   })
 }

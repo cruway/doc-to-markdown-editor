@@ -6,6 +6,8 @@ export interface LocalFile {
   lastModified?: number
   id?: string          // Google Drive file ID
   isGoogleDoc?: boolean
+  isGoogleSheet?: boolean
+  mimeType?: string
 }
 
 export type SlotType = '起' | '承' | '転' | '結'
@@ -15,6 +17,14 @@ export interface SlotConfig {
   label: string
   color: string
   files: LocalFile[]
+}
+
+export type SeparatorType = 'hr' | 'heading' | 'none'
+
+export interface MergeOptions {
+  separator: SeparatorType
+  extractImages: boolean
+  imageOutputDir?: string
 }
 
 export interface EditorState {
@@ -32,13 +42,15 @@ export interface ElectronAPI {
   saveFile: (content: string, defaultName: string) => Promise<string | null>
   saveToPath: (content: string, filePath: string) => Promise<string>
   convertToMarkdown: (filePath: string) => Promise<string>
-  mergeDocuments: (slots: SlotConfig[]) => Promise<string>
+  mergeDocuments: (slots: SlotConfig[], options?: MergeOptions) => Promise<string>
+  extractImages: (markdown: string, outputDir: string) => Promise<{ markdown: string; imageCount: number }>
   googleAuth: () => Promise<{ success: boolean; message: string }>
   googleLogout: () => Promise<{ success: boolean }>
   googleGetAuthStatus: () => Promise<{ authenticated: boolean }>
   googleListFiles: (folderId?: string) => Promise<any[]>
   googleListFolders: () => Promise<any[]>
   googleDownloadDoc: (fileId: string) => Promise<{ markdown: string; html: string }>
+  googleDownloadSheet: (fileId: string) => Promise<{ markdown: string }>
   googleScanFolder: (folderId: string) => Promise<Record<string, LocalFile[]>>
   googleSaveFile: (content: string, fileName: string, folderId: string) => Promise<{ id: string; url: string }>
 }

@@ -4,6 +4,8 @@ import http from 'http'
 import url from 'url'
 import fs from 'fs'
 import path from 'path'
+import { turndown, cleanGoogleDocsHtml } from './turndownInstance'
+import { csvToMarkdownTable } from './csvParser'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
@@ -133,7 +135,7 @@ export function setupGoogleHandlers() {
     if (!oauth2Client) throw new Error('未認証です')
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    let query = "mimeType='application/vnd.google-apps.document' and trashed=false"
+    let query = "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false"
     if (folderId) {
       query += ` and '${folderId}' in parents`
     }
@@ -171,17 +173,28 @@ export function setupGoogleHandlers() {
       mimeType: 'text/html',
     })
 
-    // Convert HTML to markdown via turndown
-    const TurndownService = require('turndown')
-    const turndown = new TurndownService({
-      headingStyle: 'atx',
-      bulletListMarker: '-',
-      codeBlockStyle: 'fenced',
-    })
+    const rawHtml = res.data as string
+    const cleanedHtml = cleanGoogleDocsHtml(rawHtml)
 
     return {
-      markdown: turndown.turndown(res.data as string),
-      html: res.data,
+      markdown: turndown.turndown(cleanedHtml),
+      html: rawHtml,
+    }
+  })
+
+  // Google Sheets → Markdown テーブル変換
+  ipcMain.handle('google:downloadSheet', async (_event, fileId: string) => {
+    if (!oauth2Client) throw new Error('未認証です')
+    const drive = google.drive({ version: 'v3', auth: oauth2Client })
+
+    const res = await drive.files.export({
+      fileId,
+      mimeType: 'text/csv',
+    })
+
+    const csv = res.data as string
+    return {
+      markdown: csvToMarkdownTable(csv),
     }
   })
 
@@ -190,7 +203,7 @@ export function setupGoogleHandlers() {
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
     const res = await drive.files.list({
-      q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
+      q: `'${folderId}' in parents and (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false`,
       fields: 'files(id, name, modifiedTime, mimeType)',
       orderBy: 'name',
     })
@@ -206,13 +219,17 @@ export function setupGoogleHandlers() {
       else if (name.includes('転') || name.includes('twist') || name.includes('turn')) slot = '転'
       else if (name.includes('結') || name.includes('conclusion') || name.includes('ending')) slot = '結'
 
+      const isSheet = file.mimeType === 'application/vnd.google-apps.spreadsheet'
+
       const fileData = {
         id: file.id,
         name: file.name,
-        path: `gdoc://${file.id}`,
-        extension: '.gdoc',
+        path: isSheet ? `gsheet://${file.id}` : `gdoc://${file.id}`,
+        extension: isSheet ? '.gsheet' : '.gdoc',
         lastModified: new Date(file.modifiedTime || '').getTime(),
-        isGoogleDoc: true,
+        isGoogleDoc: !isSheet,
+        isGoogleSheet: isSheet,
+        mimeType: file.mimeType,
       }
 
       slots[slot || 'unclassified'].push(fileData)

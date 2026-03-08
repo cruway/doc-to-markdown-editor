@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SlotConfig, LocalFile, SlotType } from '../types'
+import type { SlotConfig, LocalFile, SlotType, SeparatorType } from '../types'
 
 const DEFAULT_SLOTS: SlotConfig[] = [
   { type: '起', label: '起（イントロ）', color: '#FF8400', files: [] },
@@ -17,6 +17,8 @@ interface EditorStore {
   activeMenu: string
   isMerging: boolean
   isSaving: boolean
+  separator: SeparatorType
+  extractImages: boolean
 
   setSlots: (slots: SlotConfig[]) => void
   addFileToSlot: (slotType: SlotType, file: LocalFile) => void
@@ -29,6 +31,8 @@ interface EditorStore {
   setActiveMenu: (menu: string) => void
   setIsMerging: (v: boolean) => void
   setIsSaving: (v: boolean) => void
+  setSeparator: (v: SeparatorType) => void
+  setExtractImages: (v: boolean) => void
   resetSlots: () => void
 }
 
@@ -41,6 +45,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   activeMenu: 'editor',
   isMerging: false,
   isSaving: false,
+  separator: 'hr' as SeparatorType,
+  extractImages: false,
 
   setSlots: (slots) => set({ slots }),
 
@@ -76,5 +82,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setActiveMenu: (menu) => set({ activeMenu: menu }),
   setIsMerging: (v) => set({ isMerging: v }),
   setIsSaving: (v) => set({ isSaving: v }),
+  setSeparator: (v) => set({ separator: v }),
+  setExtractImages: (v) => set({ extractImages: v }),
   resetSlots: () => set({ slots: DEFAULT_SLOTS.map(s => ({ ...s, files: [] })) }),
 }))
