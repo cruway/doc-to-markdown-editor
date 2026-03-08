@@ -25,9 +25,9 @@ export function FileOperations() {
   }
 
   return (
-    <section className="flex gap-4">
-      <div className="flex-1">
-        <label htmlFor="output-filename" className="block text-sm font-medium text-[var(--foreground)] font-sans mb-1.5">
+    <section className="flex items-end gap-4">
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <label htmlFor="output-filename" className="text-sm font-medium text-[var(--foreground)] font-sans">
           出力ファイル名
         </label>
         <input
@@ -35,17 +35,17 @@ export function FileOperations() {
           type="text"
           value={outputFileName}
           onChange={(e) => setOutputFileName(sanitizeFileName(e.target.value))}
-          className="w-full h-10 px-4 rounded-full border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] font-sans placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+          className="w-full h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--secondary)] text-sm text-[var(--foreground)] font-sans placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/25 focus:border-[var(--ring)] transition-all duration-200"
           placeholder="output_document.md"
         />
       </div>
-      <div className="flex-1">
-        <label className="block text-sm font-medium text-[var(--foreground)] font-sans mb-1.5">
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-[var(--foreground)] font-sans">
           保存先フォルダ
         </label>
         <button
           onClick={handleSelectFolder}
-          className="w-full h-10 px-4 rounded-full border border-[var(--input)] bg-[var(--background)] text-sm text-left font-sans truncate hover:border-[var(--ring)] transition-colors"
+          className="w-full h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--secondary)] text-sm text-left font-sans truncate hover:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/25 focus:border-[var(--ring)] transition-all duration-200"
         >
           <span className={outputFolderPath ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]'}>
             {outputFolderPath || 'フォルダを選択...'}

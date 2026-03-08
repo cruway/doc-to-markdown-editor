@@ -94,14 +94,28 @@ export function MarkdownEditor() {
   return (
     <section className="flex-1 flex flex-col min-h-0">
       {/* Toolbar */}
-      <div className="flex items-center justify-between h-11 px-4 bg-[var(--secondary)] rounded-t-lg border border-[var(--border)]">
+      <div className="flex items-center justify-between h-11 px-4 bg-[#E7E8E5] rounded-t-lg border border-[var(--border)]">
         <span className="text-sm font-semibold text-[var(--foreground)] font-sans">Markdown エディタ</span>
+        <div className="flex items-center gap-2">
+          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[var(--border)] transition-colors" aria-label="Bold">
+            <span className="material-symbols-sharp text-[18px] text-[var(--muted-foreground)]" style={{ fontVariationSettings: "'wght' 300" }}>format_bold</span>
+          </button>
+          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[var(--border)] transition-colors" aria-label="Italic">
+            <span className="material-symbols-sharp text-[18px] text-[var(--muted-foreground)]" style={{ fontVariationSettings: "'wght' 300" }}>format_italic</span>
+          </button>
+          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[var(--border)] transition-colors" aria-label="Heading">
+            <span className="material-symbols-sharp text-[18px] text-[var(--muted-foreground)]" style={{ fontVariationSettings: "'wght' 300" }}>title</span>
+          </button>
+          <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[var(--border)] transition-colors" aria-label="List">
+            <span className="material-symbols-sharp text-[18px] text-[var(--muted-foreground)]" style={{ fontVariationSettings: "'wght' 300" }}>format_list_bulleted</span>
+          </button>
+        </div>
       </div>
 
       {/* Editor */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 overflow-auto bg-[var(--card)] border-x border-b border-[var(--border)] rounded-b-lg"
+        className="flex-1 min-h-0 overflow-auto bg-[var(--card)] border-x border-b border-[var(--border)] rounded-b-lg shadow-sm"
       />
     </section>
   )

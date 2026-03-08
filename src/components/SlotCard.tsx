@@ -52,7 +52,9 @@ export function SlotCard({ slot }: SlotCardProps) {
 
   return (
     <div
-      className={`flex-1 min-w-0 rounded border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden ${isDragOver ? 'ring-2' : ''}`}
+      className={`flex flex-col rounded-xl border bg-[var(--card)] shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
+        isDragOver ? 'ring-2 border-transparent' : 'border-[var(--border)]'
+      }`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -63,20 +65,25 @@ export function SlotCard({ slot }: SlotCardProps) {
       {/* Header */}
       <div className="flex items-center gap-2 px-4 h-12 border-b border-[var(--border)]">
         <div
-          className="w-7 h-7 rounded-md flex items-center justify-center text-white text-sm font-bold"
+          className="w-7 h-7 rounded-md flex items-center justify-center"
           style={{ backgroundColor: slot.color }}
         >
-          {slot.type}
+          <span className="material-symbols-sharp text-[16px] text-white" style={{ fontVariationSettings: "'wght' 400" }}>
+            {slot.type === '起' ? 'flag' : slot.type === '承' ? 'trending_up' : slot.type === '転' ? 'sync_alt' : 'check_circle'}
+          </span>
         </div>
         <span className="text-sm font-semibold text-[var(--foreground)] font-sans">{slot.label}</span>
       </div>
 
       {/* File list */}
-      <div className="px-4 py-3 min-h-[60px]">
+      <div className="px-4 py-4 min-h-[72px] flex-1">
         {slot.files.length === 0 ? (
-          <p className="text-xs text-[var(--muted-foreground)] font-sans">ファイルをドロップ</p>
+          <div className="flex flex-col items-center justify-center h-full py-3 rounded-lg border border-dashed border-[var(--border)] bg-[var(--background)]/50">
+            <span className="material-symbols-sharp text-[20px] text-[var(--muted-foreground)]/50 mb-1" style={{ fontVariationSettings: "'wght' 200" }}>upload_file</span>
+            <p className="text-[11px] text-[var(--muted-foreground)] font-sans">ファイルをドロップ</p>
+          </div>
         ) : (
-          <div className="flex flex-col gap-1.5" role="list">
+          <div className="flex flex-col gap-2" role="list">
             {slot.files.map((file, index) => (
               <div
                 key={`${slot.type}-${file.path}-${file.lastModified || index}`}
@@ -94,7 +101,7 @@ export function SlotCard({ slot }: SlotCardProps) {
                     JSON.stringify({ file, fromSlot: slot.type })
                   )
                 }}
-                className="flex items-center justify-between group cursor-grab active:cursor-grabbing focus:outline-none focus:ring-1 focus:ring-[var(--ring)] rounded px-1"
+                className="flex items-center justify-between group cursor-grab active:cursor-grabbing focus:outline-none focus:ring-1 focus:ring-[var(--ring)] rounded-md px-1 py-0.5 hover:bg-[var(--secondary)] transition-colors duration-150"
               >
                 <span className={`text-[13px] font-sans truncate ${index === 0 ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]'}`}>
                   {file.name}
@@ -102,9 +109,9 @@ export function SlotCard({ slot }: SlotCardProps) {
                 <button
                   onClick={() => removeFileFromSlot(slot.type, index)}
                   aria-label={`${file.name} を削除`}
-                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-opacity ml-2"
+                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-opacity ml-1 flex-shrink-0"
                 >
-                  <span className="material-symbols-sharp text-[16px]">close</span>
+                  <span className="material-symbols-sharp text-[14px]">close</span>
                 </button>
               </div>
             ))}
@@ -115,7 +122,7 @@ export function SlotCard({ slot }: SlotCardProps) {
       {/* Add button */}
       <button
         onClick={handleAddFile}
-        className="w-full h-10 flex items-center justify-center gap-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)]/50 transition-colors border-t border-[var(--border)]"
+        className="w-full h-10 flex items-center justify-center gap-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] transition-all duration-200"
       >
         <span className="material-symbols-sharp text-[16px]">add</span>
         <span className="text-[13px] font-sans">ファイルを追加</span>

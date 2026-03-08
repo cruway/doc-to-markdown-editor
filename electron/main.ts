@@ -20,7 +20,7 @@ function createWindow() {
     },
     ...(process.platform === 'darwin' ? {
       titleBarStyle: 'hiddenInset' as const,
-      trafficLightPosition: { x: 20, y: 20 },
+      trafficLightPosition: { x: 16, y: 18 },
     } : {
       autoHideMenuBar: true,
     }),

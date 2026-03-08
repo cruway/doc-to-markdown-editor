@@ -1,11 +1,4 @@
 import { useEditorStore } from '../stores/editorStore'
-import type { SeparatorType } from '../types'
-
-const SEPARATOR_OPTIONS: { value: SeparatorType; label: string }[] = [
-  { value: 'hr', label: '水平線（---）' },
-  { value: 'heading', label: '見出し（## 起/承/転/結）' },
-  { value: 'none', label: 'なし' },
-]
 
 export function ActionBar() {
   const {
@@ -13,7 +6,7 @@ export function ActionBar() {
     isGoogleAuthenticated, isMerging, isSaving,
     separator, extractImages,
     setMergedMarkdown, setIsMerging, setIsSaving,
-    setGoogleAuthenticated, setSeparator, setExtractImages,
+    setGoogleAuthenticated,
   } = useEditorStore()
 
   const handleMerge = async () => {
@@ -134,60 +127,21 @@ export function ActionBar() {
   const hasFiles = slots.some(s => s.files.length > 0)
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Merge options */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label htmlFor="separator-select" className="text-xs font-medium text-[var(--muted-foreground)] font-sans whitespace-nowrap">
-            区切り
-          </label>
-          <select
-            id="separator-select"
-            value={separator}
-            onChange={(e) => setSeparator(e.target.value as SeparatorType)}
-            className="h-8 px-3 rounded-full border border-[var(--input)] bg-[var(--background)] text-xs text-[var(--foreground)] font-sans focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
-          >
-            {SEPARATOR_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-        <label htmlFor="extract-images" className="flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)] font-sans cursor-pointer">
-          <input
-            id="extract-images"
-            type="checkbox"
-            checked={extractImages}
-            onChange={(e) => setExtractImages(e.target.checked)}
-            className="rounded border-[var(--input)] accent-[var(--primary)]"
-          />
-          画像を外部ファイルに抽出
-        </label>
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex items-center justify-end gap-3">
-        <button
-          onClick={handleMerge}
-          disabled={!hasFiles || isMerging}
-          className="h-12 px-6 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] font-mono text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-        >
-          {isMerging ? '統合中...' : '統合実行（プレビュー）'}
-        </button>
-        <button
-          onClick={handleSaveLocal}
-          disabled={!mergedMarkdown || isSaving}
-          className="h-12 px-6 rounded-full bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-        >
-          {isSaving ? '保存中...' : 'ローカルに保存'}
-        </button>
-        <button
-          onClick={handleSaveGoogle}
-          disabled={!mergedMarkdown || isSaving}
-          className="h-12 px-6 rounded-full border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] font-mono text-sm font-medium hover:bg-[var(--secondary)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          Google ドライブへ保存
-        </button>
-      </div>
+    <div className="flex items-center justify-end gap-3">
+      <button
+        onClick={handleMerge}
+        disabled={!hasFiles || isMerging}
+        className="h-12 px-6 rounded-full bg-[var(--primary)] text-sm font-mono font-medium text-[var(--foreground)] hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+      >
+        {isMerging ? '統合中...' : '統合実行（プレビュー）'}
+      </button>
+      <button
+        onClick={handleSaveGoogle}
+        disabled={!mergedMarkdown || isSaving}
+        className="h-12 px-6 rounded-full bg-[#E7E8E5] text-sm font-mono font-medium text-[var(--foreground)] hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+      >
+        Google ドライブへ保存
+      </button>
     </div>
   )
 }

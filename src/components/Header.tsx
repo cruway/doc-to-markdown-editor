@@ -86,29 +86,35 @@ export function Header() {
   }
 
   return (
-    <header className="flex items-start justify-between">
-      <div>
+    <header className="flex items-center justify-between">
+      <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold font-mono text-[var(--foreground)]">
           Doc-to-Markdown 統合エディタ
         </h1>
-        <p className="text-sm text-[var(--muted-foreground)] font-sans mt-1">
-          ドキュメントを起承転結の構成で統合し、マークダウンに変換
+        <p className="text-sm text-[var(--muted-foreground)] font-sans">
+          Google ドキュメントを起承転結の構成で統合し、マークダウンに変換
         </p>
       </div>
       <div className="flex items-center gap-3">
         <button
           onClick={handleScanLocalFolder}
           disabled={isScanning}
-          className="h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="no-drag h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--secondary)] text-sm font-mono font-medium text-[var(--foreground)] shadow-sm hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
-          {isScanning ? 'スキャン中...' : 'ローカルフォルダを取得'}
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-sharp text-[16px]" style={{ fontVariationSettings: "'wght' 300" }}>folder_open</span>
+            {isScanning ? 'スキャン中...' : 'ローカル取得'}
+          </span>
         </button>
         <button
           onClick={handleGoogleScan}
           disabled={isScanning}
-          className="h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="no-drag h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--secondary)] text-sm font-mono font-medium text-[var(--foreground)] shadow-sm hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
-          {isScanning ? 'スキャン中...' : 'Google ドライブから取得'}
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-sharp text-[16px]" style={{ fontVariationSettings: "'wght' 300" }}>cloud_download</span>
+            {isScanning ? 'スキャン中...' : 'Google ドライブから取得'}
+          </span>
         </button>
       </div>
     </header>
