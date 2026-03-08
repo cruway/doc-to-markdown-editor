@@ -8,7 +8,6 @@ interface SlotCardProps {
 
 export function SlotCard({ slot }: SlotCardProps) {
   const { removeFileFromSlot, addFileToSlot } = useEditorStore()
-  // [P1-16] classList → React state
   const [isDragOver, setIsDragOver] = useState(false)
 
   const handleAddFile = async () => {
@@ -18,7 +17,6 @@ export function SlotCard({ slot }: SlotCardProps) {
     }
   }
 
-  // [P1-10] JSON.parse に try-catch 追加
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
@@ -48,7 +46,7 @@ export function SlotCard({ slot }: SlotCardProps) {
     setIsDragOver(true)
   }
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = () => {
     setIsDragOver(false)
   }
 
@@ -58,6 +56,8 @@ export function SlotCard({ slot }: SlotCardProps) {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
+      role="region"
+      aria-label={`${slot.label} ドロップゾーン`}
       style={{ '--tw-ring-color': slot.color } as React.CSSProperties}
     >
       {/* Header */}
@@ -76,26 +76,33 @@ export function SlotCard({ slot }: SlotCardProps) {
         {slot.files.length === 0 ? (
           <p className="text-xs text-[var(--muted-foreground)] font-sans">ファイルをドロップ</p>
         ) : (
-          <div className="flex flex-col gap-1.5">
-            {/* [P1-13] key の改善 */}
+          <div className="flex flex-col gap-1.5" role="list">
             {slot.files.map((file, index) => (
               <div
-                key={`${slot.type}-${index}-${file.path}`}
+                key={`${slot.type}-${file.path}-${file.lastModified || index}`}
                 draggable
+                role="listitem"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Delete' || e.key === 'Backspace') {
+                    removeFileFromSlot(slot.type, index)
+                  }
+                }}
                 onDragStart={(e) => {
                   e.dataTransfer.setData(
                     'application/json',
                     JSON.stringify({ file, fromSlot: slot.type })
                   )
                 }}
-                className="flex items-center justify-between group cursor-grab active:cursor-grabbing"
+                className="flex items-center justify-between group cursor-grab active:cursor-grabbing focus:outline-none focus:ring-1 focus:ring-[var(--ring)] rounded px-1"
               >
                 <span className={`text-[13px] font-sans truncate ${index === 0 ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]'}`}>
                   {file.name}
                 </span>
                 <button
                   onClick={() => removeFileFromSlot(slot.type, index)}
-                  className="opacity-0 group-hover:opacity-100 text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-opacity ml-2"
+                  aria-label={`${file.name} を削除`}
+                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-opacity ml-2"
                 >
                   <span className="material-symbols-sharp text-[16px]">close</span>
                 </button>

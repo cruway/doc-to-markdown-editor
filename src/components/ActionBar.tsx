@@ -50,13 +50,14 @@ export function ActionBar() {
         }
       }
 
-      const joinSeparator = separator === 'heading' ? '\n\n' : separator === 'none' ? '\n\n' : '\n\n---\n\n'
+      // separator ロジック修正: 'hr' → '---', 'heading'/'none' → 改行のみ
+      const joinSeparator = separator === 'hr' ? '\n\n---\n\n' : '\n\n'
       let merged = sections.join(joinSeparator)
 
-      // [H-04][F-006] 画像抽出が有効だがフォルダ未指定の場合は中断
+      // 画像抽出が有効だがフォルダ未指定の場合は中断
       if (extractImages && !outputFolderPath) {
         alert('画像を抽出するには、保存先フォルダを指定してください。')
-        setMergedMarkdown(merged) // 画像なしでプレビューは表示
+        setMergedMarkdown(merged)
         return
       }
       if (extractImages && outputFolderPath) {
@@ -69,7 +70,6 @@ export function ActionBar() {
 
       setMergedMarkdown(merged)
     } catch (err) {
-      // [P1-09] err 型安全化
       const message = err instanceof Error ? err.message : String(err)
       console.error('Merge failed:', err)
       alert(`統合エラー: ${message}`)
@@ -78,16 +78,20 @@ export function ActionBar() {
     }
   }
 
+  // .md 拡張子を保証
+  const ensureMdExtension = (name: string) => name.endsWith('.md') ? name : `${name}.md`
+
   const handleSaveLocal = async () => {
     if (!mergedMarkdown) return
     setIsSaving(true)
     try {
+      const filename = ensureMdExtension(outputFileName)
       if (outputFolderPath) {
-        const filePath = `${outputFolderPath}/${outputFileName}`
+        const filePath = `${outputFolderPath}/${filename}`
         await window.electronAPI.saveToPath(mergedMarkdown, filePath)
         alert(`保存しました: ${filePath}`)
       } else {
-        const result = await window.electronAPI.saveFile(mergedMarkdown, outputFileName)
+        const result = await window.electronAPI.saveFile(mergedMarkdown, filename)
         if (result) alert(`保存しました: ${result}`)
       }
     } catch (err) {
@@ -111,12 +115,14 @@ export function ActionBar() {
 
     setIsSaving(true)
     try {
+      const filename = ensureMdExtension(outputFileName)
       const result = await window.electronAPI.googleSaveFile(
         mergedMarkdown,
-        outputFileName,
+        filename,
         ''
       )
-      alert(`Google ドライブに保存しました: ${result.url || result.id}`)
+      const location = result?.url || result?.id || 'unknown'
+      alert(`Google ドライブに保存しました: ${location}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       alert(`Google ドライブ保存エラー: ${message}`)
@@ -132,10 +138,11 @@ export function ActionBar() {
       {/* Merge options */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-[var(--muted-foreground)] font-sans whitespace-nowrap">
+          <label htmlFor="separator-select" className="text-xs font-medium text-[var(--muted-foreground)] font-sans whitespace-nowrap">
             区切り
           </label>
           <select
+            id="separator-select"
             value={separator}
             onChange={(e) => setSeparator(e.target.value as SeparatorType)}
             className="h-8 px-3 rounded-full border border-[var(--input)] bg-[var(--background)] text-xs text-[var(--foreground)] font-sans focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
@@ -145,8 +152,9 @@ export function ActionBar() {
             ))}
           </select>
         </div>
-        <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)] font-sans cursor-pointer">
+        <label htmlFor="extract-images" className="flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)] font-sans cursor-pointer">
           <input
+            id="extract-images"
             type="checkbox"
             checked={extractImages}
             onChange={(e) => setExtractImages(e.target.checked)}

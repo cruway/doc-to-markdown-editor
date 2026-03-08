@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SlotConfig, LocalFile, SlotType, SeparatorType } from '../types'
+import type { SlotConfig, LocalFile, SlotType, SeparatorType, MenuId } from '../types'
 
 const DEFAULT_SLOTS: SlotConfig[] = [
   { type: '起', label: '起（イントロ）', color: '#FF8400', files: [] },
@@ -14,7 +14,7 @@ interface EditorStore {
   outputFileName: string
   outputFolderPath: string
   isGoogleAuthenticated: boolean
-  activeMenu: string
+  activeMenu: MenuId
   isMerging: boolean
   isSaving: boolean
   isScanning: boolean // [P1-11] スキャン中状態
@@ -29,7 +29,7 @@ interface EditorStore {
   setOutputFileName: (name: string) => void
   setOutputFolderPath: (path: string) => void
   setGoogleAuthenticated: (status: boolean) => void
-  setActiveMenu: (menu: string) => void
+  setActiveMenu: (menu: MenuId) => void
   setIsMerging: (v: boolean) => void
   setIsSaving: (v: boolean) => void
   setIsScanning: (v: boolean) => void

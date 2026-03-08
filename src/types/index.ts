@@ -21,6 +21,8 @@ export interface SlotConfig {
 
 export type SeparatorType = 'hr' | 'heading' | 'none'
 
+export type MenuId = 'editor' | 'files' | 'settings'
+
 export interface MergeOptions {
   separator: SeparatorType
   extractImages: boolean

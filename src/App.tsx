@@ -10,16 +10,17 @@ import { useEditorStore } from './stores/editorStore'
 export default function App() {
   const { setGoogleAuthenticated } = useEditorStore()
 
+  // Promise cleanup で unmount 後の state 更新を防止
   useEffect(() => {
-    // Check Google auth status on mount
+    let cancelled = false
     window.electronAPI?.googleGetAuthStatus?.().then((status) => {
-      if (status?.authenticated) {
+      if (!cancelled && status?.authenticated) {
         setGoogleAuthenticated(true)
       }
     }).catch((err) => {
-      // [F-002] 認証状態チェック失敗時にログ出力
-      console.warn('Google 認証状態チェック失敗:', err)
+      if (!cancelled) console.warn('Google 認証状態チェック失敗:', err)
     })
+    return () => { cancelled = true }
   }, [setGoogleAuthenticated])
 
   return (

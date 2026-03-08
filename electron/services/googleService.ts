@@ -52,7 +52,11 @@ function loadCredentials(): OAuth2Client | null {
   try {
     const content = fs.readFileSync(credPath, 'utf-8')
     const credentials = JSON.parse(content)
-    const { client_id, client_secret } = credentials.installed || credentials.web
+    const creds = credentials.installed || credentials.web
+    if (!creds || !creds.client_id || !creds.client_secret) {
+      throw new Error('credentials.json の形式が不正です（client_id/client_secret が必要）')
+    }
+    const { client_id, client_secret } = creds
     oauth2Client = new google.auth.OAuth2(client_id, client_secret, 'http://localhost:3333/callback')
     return oauth2Client
   } catch (err) {
@@ -101,9 +105,10 @@ async function authenticateWithBrowser(): Promise<boolean> {
         ensureConfigDir()
         fs.writeFileSync(getTokenPath(), JSON.stringify(tokens))
 
-        res.end('認証成功！このウィンドウを閉じてアプリに戻ってください。')
-        server.close()
-        resolve(true)
+        res.end('認証成功！このウィンドウを閉じてアプリに戻ってください。', () => {
+          server.close()
+          resolve(true)
+        })
       } catch (err) {
         res.end('認証に失敗しました。')
         server.close()
@@ -295,7 +300,7 @@ export function setupGoogleHandlers() {
           name: file.name,
           path: isSheet ? `gsheet://${file.id}` : `gdoc://${file.id}`,
           extension: isSheet ? '.gsheet' : '.gdoc',
-          lastModified: new Date(file.modifiedTime || '').getTime(),
+          lastModified: file.modifiedTime ? new Date(file.modifiedTime).getTime() : 0,
           isGoogleDoc: !isSheet,
           isGoogleSheet: isSheet,
           mimeType: file.mimeType,

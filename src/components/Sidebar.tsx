@@ -1,6 +1,7 @@
 import { useEditorStore } from '../stores/editorStore'
+import type { MenuId } from '../types'
 
-const menuItems = [
+const menuItems: { id: MenuId; label: string; icon: string }[] = [
   { id: 'editor', label: '統合エディタ', icon: 'merge_type' },
   { id: 'files', label: 'ファイル管理', icon: 'folder' },
   { id: 'settings', label: '設定', icon: 'settings' },
@@ -26,6 +27,7 @@ export function Sidebar() {
           <button
             key={item.id}
             onClick={() => setActiveMenu(item.id)}
+            aria-current={activeMenu === item.id ? 'page' : undefined}
             className={`w-full flex items-center gap-4 px-4 py-3 rounded-full text-base transition-colors ${
               activeMenu === item.id
                 ? 'bg-[var(--sidebar-accent)] text-[var(--sidebar-accent-foreground)]'

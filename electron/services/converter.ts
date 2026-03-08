@@ -1,9 +1,12 @@
 import { ipcMain } from 'electron'
-import fs from 'fs'
+import fs from 'fs/promises'
 import path from 'path'
 import mammoth from 'mammoth'
 import { turndown } from './turndownInstance'
 import { extractBase64ImagesFromMarkdown } from './imageExtractor'
+
+// 統合ドキュメントの最大合計サイズ（100MB）
+const MAX_MERGED_SIZE = 100 * 1024 * 1024
 
 const SLOT_LABELS: Record<string, string> = {
   '起': '起',
@@ -13,18 +16,18 @@ const SLOT_LABELS: Record<string, string> = {
 }
 
 async function convertDocxToMarkdown(filePath: string): Promise<string> {
-  const buffer = fs.readFileSync(filePath)
+  const buffer = await fs.readFile(filePath)
   const result = await mammoth.convertToHtml({ buffer })
   return turndown.turndown(result.value)
 }
 
-function convertHtmlToMarkdown(filePath: string): string {
-  const html = fs.readFileSync(filePath, 'utf-8')
+async function convertHtmlToMarkdown(filePath: string): Promise<string> {
+  const html = await fs.readFile(filePath, 'utf-8')
   return turndown.turndown(html)
 }
 
-function readTextFile(filePath: string): string {
-  return fs.readFileSync(filePath, 'utf-8')
+async function readTextFile(filePath: string): Promise<string> {
+  return fs.readFile(filePath, 'utf-8')
 }
 
 export async function convertFile(filePath: string): Promise<string> {
@@ -42,10 +45,10 @@ export async function convertFile(filePath: string): Promise<string> {
     case '.docx':
       return convertDocxToMarkdown(filePath)
     case '.html':
-      return convertHtmlToMarkdown(filePath)
+      return await convertHtmlToMarkdown(filePath)
     case '.md':
     case '.txt':
-      return readTextFile(filePath)
+      return await readTextFile(filePath)
     default:
       throw new Error(`Unsupported file format: ${ext}`)
   }
@@ -79,8 +82,13 @@ export function setupConverterHandlers() {
         if (!slot.files || slot.files.length === 0) continue
 
         const sectionParts: string[] = []
+        let totalSize = 0
         for (const file of slot.files) {
           const md = await convertFile(file.path)
+          totalSize += md.length
+          if (totalSize > MAX_MERGED_SIZE) {
+            throw new Error(`統合結果が最大サイズ（${MAX_MERGED_SIZE / 1024 / 1024}MB）を超えました`)
+          }
           sectionParts.push(md)
         }
 

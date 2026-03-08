@@ -37,8 +37,12 @@ const theme = EditorView.theme({
 export function MarkdownEditor() {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const isSyncingRef = useRef(false)
   const { mergedMarkdown, setMergedMarkdown } = useEditorStore()
 
+  // EditorView のライフサイクル: マウント時に1回だけ初期化。
+  // setMergedMarkdown は Zustand の安定参照のため deps 不要。
+  // 外部からのコンテンツ同期は下の useEffect で処理。
   useEffect(() => {
     if (!containerRef.current) return
 
@@ -53,7 +57,7 @@ export function MarkdownEditor() {
         syntaxHighlighting(defaultHighlightStyle),
         theme,
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
+          if (update.docChanged && !isSyncingRef.current) {
             setMergedMarkdown(update.state.doc.toString())
           }
         }),
@@ -68,20 +72,22 @@ export function MarkdownEditor() {
     viewRef.current = view
 
     return () => {
-      view.destroy()
+      viewRef.current?.destroy()
       viewRef.current = null
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync external markdown changes to the editor
+  // 外部 markdown 変更をエディタに同期（sync loop 防止付き）
   useEffect(() => {
     const view = viewRef.current
     if (!view) return
     const currentDoc = view.state.doc.toString()
     if (currentDoc !== mergedMarkdown) {
+      isSyncingRef.current = true
       view.dispatch({
         changes: { from: 0, to: currentDoc.length, insert: mergedMarkdown },
       })
+      isSyncingRef.current = false
     }
   }, [mergedMarkdown])
 
@@ -90,7 +96,6 @@ export function MarkdownEditor() {
       {/* Toolbar */}
       <div className="flex items-center justify-between h-11 px-4 bg-[var(--secondary)] rounded-t-lg border border-[var(--border)]">
         <span className="text-sm font-semibold text-[var(--foreground)] font-sans">Markdown エディタ</span>
-        {/* [P2-05] 未実装ツールバーボタンを削除 */}
       </div>
 
       {/* Editor */}

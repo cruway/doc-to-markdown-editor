@@ -57,12 +57,15 @@ function escapeTableCell(cell: string): string {
   return cell.replace(/\|/g, '\\|').replace(/\n/g, ' ')
 }
 
+// CSV テーブルの最大列数制限
+const MAX_CSV_COLUMNS = 1000
+
 export function csvToMarkdownTable(csv: string): string {
   const rows = parseCSV(csv)
   if (rows.length === 0) return ''
 
-  // 列数を最大値に統一
-  const maxCols = Math.max(...rows.map(r => r.length))
+  // 列数を最大値に統一（上限付き）
+  const maxCols = Math.min(Math.max(...rows.map(r => r.length)), MAX_CSV_COLUMNS)
   const normalized = rows.map(row => {
     while (row.length < maxCols) row.push('')
     return row.map(escapeTableCell)
