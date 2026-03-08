@@ -17,6 +17,7 @@ interface EditorStore {
   activeMenu: string
   isMerging: boolean
   isSaving: boolean
+  isScanning: boolean // [P1-11] スキャン中状態
   separator: SeparatorType
   extractImages: boolean
 
@@ -31,6 +32,7 @@ interface EditorStore {
   setActiveMenu: (menu: string) => void
   setIsMerging: (v: boolean) => void
   setIsSaving: (v: boolean) => void
+  setIsScanning: (v: boolean) => void
   setSeparator: (v: SeparatorType) => void
   setExtractImages: (v: boolean) => void
   resetSlots: () => void
@@ -45,6 +47,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   activeMenu: 'editor',
   isMerging: false,
   isSaving: false,
+  isScanning: false,
   separator: 'hr' as SeparatorType,
   extractImages: false,
 
@@ -66,11 +69,14 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     ),
   })),
 
+  // [P1-12] non-null assertion 除去 → ガード節
   moveFile: (fromSlot, fromIndex, toSlot, toIndex) => set((state) => {
     const newSlots = state.slots.map(s => ({ ...s, files: [...s.files] }))
-    const from = newSlots.find(s => s.type === fromSlot)!
-    const to = newSlots.find(s => s.type === toSlot)!
+    const from = newSlots.find(s => s.type === fromSlot)
+    const to = newSlots.find(s => s.type === toSlot)
+    if (!from || !to) return state
     const [moved] = from.files.splice(fromIndex, 1)
+    if (!moved) return state
     to.files.splice(toIndex, 0, moved)
     return { slots: newSlots }
   }),
@@ -82,6 +88,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setActiveMenu: (menu) => set({ activeMenu: menu }),
   setIsMerging: (v) => set({ isMerging: v }),
   setIsSaving: (v) => set({ isSaving: v }),
+  setIsScanning: (v) => set({ isScanning: v }),
   setSeparator: (v) => set({ separator: v }),
   setExtractImages: (v) => set({ extractImages: v }),
   resetSlots: () => set({ slots: DEFAULT_SLOTS.map(s => ({ ...s, files: [] })) }),

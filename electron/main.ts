@@ -1,6 +1,5 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import path from 'path'
-import fs from 'fs'
 import { setupFileHandlers } from './services/fileService'
 import { setupConverterHandlers } from './services/converter'
 import { setupGoogleHandlers } from './services/googleService'
@@ -38,6 +37,7 @@ function createWindow() {
   })
 }
 
+// [P1-02] app.whenReady() にエラーハンドリング追加
 app.whenReady().then(() => {
   createWindow()
   setupFileHandlers()
@@ -49,6 +49,9 @@ app.whenReady().then(() => {
       createWindow()
     }
   })
+}).catch((err) => {
+  console.error('アプリケーション初期化エラー:', err)
+  app.quit()
 })
 
 app.on('window-all-closed', () => {

@@ -17,7 +17,7 @@ interface LocalFileLocal {
   lastModified: number
 }
 
-function classifySlot(fileName: string): '起' | '承' | '転' | '結' | null {
+export function classifySlot(fileName: string): '起' | '承' | '転' | '結' | null {
   const name = fileName.toLowerCase()
   if (name.includes('起') || name.includes('intro') || name.includes('opening')) return '起'
   if (name.includes('承') || name.includes('body') || name.includes('main')) return '承'
@@ -26,42 +26,57 @@ function classifySlot(fileName: string): '起' | '承' | '転' | '結' | null {
   return null
 }
 
+// [P1-03] パス検証: 指定されたベースディレクトリ配下であることを確認
+function validatePathWithinBase(filePath: string, baseDir: string): string {
+  const resolved = path.resolve(filePath)
+  const resolvedBase = path.resolve(baseDir)
+  if (!resolved.startsWith(resolvedBase + path.sep) && resolved !== resolvedBase) {
+    throw new Error('指定されたパスは許可されたディレクトリ外です')
+  }
+  return resolved
+}
+
 export function setupFileHandlers() {
+  // [P1-01] IPC ハンドラに try-catch 追加
   ipcMain.handle('file:scanFolder', async (_event, folderPath: string) => {
-    const slots = {
-      '起': [] as LocalFileLocal[],
-      '承': [] as LocalFileLocal[],
-      '転': [] as LocalFileLocal[],
-      '結': [] as LocalFileLocal[],
-      'unclassified': [] as LocalFileLocal[],
-    }
-
-    const files = fs.readdirSync(folderPath)
-    for (const file of files) {
-      const filePath = path.join(folderPath, file)
-      const stat = fs.statSync(filePath)
-      if (!stat.isFile()) continue
-
-      const ext = path.extname(file).toLowerCase()
-      if (!SUPPORTED_EXTENSIONS.includes(ext)) continue
-
-      const localFile: LocalFileLocal = {
-        path: filePath,
-        name: file,
-        extension: ext,
-        size: stat.size,
-        lastModified: stat.mtimeMs,
+    try {
+      const slots = {
+        '起': [] as LocalFileLocal[],
+        '承': [] as LocalFileLocal[],
+        '転': [] as LocalFileLocal[],
+        '結': [] as LocalFileLocal[],
+        'unclassified': [] as LocalFileLocal[],
       }
 
-      const slot = classifySlot(file)
-      if (slot) {
-        slots[slot].push(localFile)
-      } else {
-        slots.unclassified.push(localFile)
-      }
-    }
+      const files = fs.readdirSync(folderPath)
+      for (const file of files) {
+        const filePath = path.join(folderPath, file)
+        const stat = fs.statSync(filePath)
+        if (!stat.isFile()) continue
 
-    return slots
+        const ext = path.extname(file).toLowerCase()
+        if (!SUPPORTED_EXTENSIONS.includes(ext)) continue
+
+        const localFile: LocalFileLocal = {
+          path: filePath,
+          name: file,
+          extension: ext,
+          size: stat.size,
+          lastModified: stat.mtimeMs,
+        }
+
+        const slot = classifySlot(file)
+        if (slot) {
+          slots[slot].push(localFile)
+        } else {
+          slots.unclassified.push(localFile)
+        }
+      }
+
+      return slots
+    } catch (err) {
+      throw new Error(`フォルダスキャンエラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
   })
 
   ipcMain.handle('dialog:openFolder', async () => {
@@ -73,43 +88,61 @@ export function setupFileHandlers() {
   })
 
   ipcMain.handle('dialog:openFiles', async (_event, extensions: string[]) => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openFile', 'multiSelections'],
-      title: 'ファイルを選択',
-      filters: [
-        { name: 'Documents', extensions: extensions || ['docx', 'md', 'html', 'txt'] },
-      ],
-    })
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile', 'multiSelections'],
+        title: 'ファイルを選択',
+        filters: [
+          { name: 'Documents', extensions: extensions || ['docx', 'md', 'html', 'txt'] },
+        ],
+      })
 
-    if (result.canceled) return []
+      if (result.canceled) return []
 
-    return result.filePaths.map((filePath) => {
-      const stat = fs.statSync(filePath)
-      return {
-        path: filePath,
-        name: path.basename(filePath),
-        extension: path.extname(filePath).toLowerCase(),
-        size: stat.size,
-        lastModified: stat.mtimeMs,
-      }
-    })
+      return result.filePaths.map((filePath) => {
+        const stat = fs.statSync(filePath)
+        return {
+          path: filePath,
+          name: path.basename(filePath),
+          extension: path.extname(filePath).toLowerCase(),
+          size: stat.size,
+          lastModified: stat.mtimeMs,
+        }
+      })
+    } catch (err) {
+      throw new Error(`ファイル選択エラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
   })
 
   ipcMain.handle('dialog:saveFile', async (_event, content: string, defaultName: string) => {
-    const result = await dialog.showSaveDialog({
-      title: '保存先を選択',
-      defaultPath: defaultName,
-      filters: [{ name: 'Markdown', extensions: ['md'] }],
-    })
+    try {
+      const result = await dialog.showSaveDialog({
+        title: '保存先を選択',
+        defaultPath: defaultName,
+        filters: [{ name: 'Markdown', extensions: ['md'] }],
+      })
 
-    if (result.canceled || !result.filePath) return null
+      if (result.canceled || !result.filePath) return null
 
-    fs.writeFileSync(result.filePath, content, 'utf-8')
-    return result.filePath
+      fs.writeFileSync(result.filePath, content, 'utf-8')
+      return result.filePath
+    } catch (err) {
+      throw new Error(`ファイル保存エラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
   })
 
+  // [P1-03] パス検証付き保存
   ipcMain.handle('file:saveToPath', async (_event, content: string, filePath: string) => {
-    fs.writeFileSync(filePath, content, 'utf-8')
-    return filePath
+    try {
+      const dir = path.dirname(path.resolve(filePath))
+      // 保存先ディレクトリが存在することを確認
+      if (!fs.existsSync(dir)) {
+        throw new Error(`保存先ディレクトリが存在しません: ${dir}`)
+      }
+      fs.writeFileSync(path.resolve(filePath), content, 'utf-8')
+      return path.resolve(filePath)
+    } catch (err) {
+      throw new Error(`パス指定保存エラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
   })
 }

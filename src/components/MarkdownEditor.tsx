@@ -89,18 +89,7 @@ export function MarkdownEditor() {
       {/* Toolbar */}
       <div className="flex items-center justify-between h-11 px-4 bg-[var(--secondary)] rounded-t-lg border border-[var(--border)]">
         <span className="text-sm font-semibold text-[var(--foreground)] font-sans">Markdown エディタ</span>
-        <div className="flex items-center gap-2">
-          {['format_bold', 'format_italic', 'title', 'format_list_bulleted'].map((icon) => (
-            <button
-              key={icon}
-              className="w-7 h-7 flex items-center justify-center rounded text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--background)] transition-colors"
-            >
-              <span className="material-symbols-sharp text-[18px]" style={{ fontVariationSettings: "'wght' 100" }}>
-                {icon}
-              </span>
-            </button>
-          ))}
-        </div>
+        {/* [P2-05] 未実装ツールバーボタンを削除 */}
       </div>
 
       {/* Editor */}

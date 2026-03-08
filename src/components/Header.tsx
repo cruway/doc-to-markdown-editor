@@ -1,73 +1,88 @@
 import { useEditorStore } from '../stores/editorStore'
+import type { GoogleDriveFolder } from '../types'
 
 export function Header() {
-  // [M-03] React hooks 経由で最新の state を取得
   const {
     slots, setSlots, setOutputFolderPath,
     isGoogleAuthenticated, setGoogleAuthenticated,
+    isScanning, setIsScanning,
   } = useEditorStore()
 
+  // [P1-11] スキャン中はボタンを無効化
   const handleScanLocalFolder = async () => {
-    const folder = await window.electronAPI.openFolder()
-    if (!folder) return
+    setIsScanning(true)
+    try {
+      const folder = await window.electronAPI.openFolder()
+      if (!folder) return
 
-    const result = await window.electronAPI.scanFolder(folder)
+      const result = await window.electronAPI.scanFolder(folder)
 
-    // イベントハンドラ内では getState() で最新値を取得
-    const currentSlots = useEditorStore.getState().slots
-    const newSlots = currentSlots.map(slot => ({
-      ...slot,
-      files: [...slot.files, ...(result[slot.type] || [])],
-    }))
-    setSlots(newSlots)
-    setOutputFolderPath(folder)
+      const currentSlots = useEditorStore.getState().slots
+      const newSlots = currentSlots.map(slot => ({
+        ...slot,
+        files: [...slot.files, ...(result[slot.type] || [])],
+      }))
+      setSlots(newSlots)
+      setOutputFolderPath(folder)
+    } catch (err) {
+      alert(`スキャンエラー: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsScanning(false)
+    }
   }
 
-  const handleGoogleConnect = async () => {
-    if (isGoogleAuthenticated) return
+  const handleGoogleConnect = async (): Promise<boolean> => {
+    if (isGoogleAuthenticated) return true
 
     const result = await window.electronAPI.googleAuth()
     if (result.success) {
       setGoogleAuthenticated(true)
+      return true
     } else {
       alert(result.message)
+      return false
     }
   }
 
-  // [M-04] Google Drive フォルダ選択ダイアログ
   const handleGoogleScan = async () => {
-    if (!isGoogleAuthenticated) {
-      await handleGoogleConnect()
-      if (!useEditorStore.getState().isGoogleAuthenticated) return
+    setIsScanning(true)
+    try {
+      // [P1-09] handleGoogleConnect の戻り値で認証結果を判定
+      const authed = await handleGoogleConnect()
+      if (!authed) return
+
+      const folders: GoogleDriveFolder[] = await window.electronAPI.googleListFolders()
+      if (folders.length === 0) {
+        alert('Google ドライブにフォルダがありません')
+        return
+      }
+
+      const folderNames = folders.map((f, i) => `${i + 1}. ${f.name}`).join('\n')
+      const input = window.prompt(
+        `スキャンするフォルダを選択してください（番号を入力）:\n${folderNames}`,
+        '1'
+      )
+      if (!input) return
+
+      const idx = parseInt(input.trim(), 10) - 1
+      if (isNaN(idx) || idx < 0 || idx >= folders.length) {
+        alert('無効な番号です')
+        return
+      }
+
+      const selectedFolder = folders[idx]
+      const result = await window.electronAPI.googleScanFolder(selectedFolder.id)
+      const currentSlots = useEditorStore.getState().slots
+      const newSlots = currentSlots.map(slot => ({
+        ...slot,
+        files: [...slot.files, ...(result[slot.type] || [])],
+      }))
+      setSlots(newSlots)
+    } catch (err) {
+      alert(`Google スキャンエラー: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsScanning(false)
     }
-
-    const folders = await window.electronAPI.googleListFolders()
-    if (folders.length === 0) {
-      alert('Google ドライブにフォルダがありません')
-      return
-    }
-
-    const folderNames = folders.map((f: any, i: number) => `${i + 1}. ${f.name}`).join('\n')
-    const input = window.prompt(
-      `スキャンするフォルダを選択してください（番号を入力）:\n${folderNames}`,
-      '1'
-    )
-    if (!input) return
-
-    const idx = parseInt(input, 10) - 1
-    if (isNaN(idx) || idx < 0 || idx >= folders.length) {
-      alert('無効な番号です')
-      return
-    }
-
-    const selectedFolder = folders[idx]
-    const result = await window.electronAPI.googleScanFolder(selectedFolder.id)
-    const currentSlots = useEditorStore.getState().slots
-    const newSlots = currentSlots.map(slot => ({
-      ...slot,
-      files: [...slot.files, ...(result[slot.type] || [])],
-    }))
-    setSlots(newSlots)
   }
 
   return (
@@ -83,15 +98,17 @@ export function Header() {
       <div className="flex items-center gap-3">
         <button
           onClick={handleScanLocalFolder}
-          className="h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors shadow-sm"
+          disabled={isScanning}
+          className="h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          ローカルフォルダを取得
+          {isScanning ? 'スキャン中...' : 'ローカルフォルダを取得'}
         </button>
         <button
           onClick={handleGoogleScan}
-          className="h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors shadow-sm"
+          disabled={isScanning}
+          className="h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Google ドライブから取得
+          {isScanning ? 'スキャン中...' : 'Google ドライブから取得'}
         </button>
       </div>
     </header>

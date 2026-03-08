@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+// [P1-15] preload の型定義は src/types/index.ts の ElectronAPI と対応
 contextBridge.exposeInMainWorld('electronAPI', {
   // File operations
   scanFolder: (folderPath: string) => ipcRenderer.invoke('file:scanFolder', folderPath),
@@ -10,7 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Conversion
   convertToMarkdown: (filePath: string) => ipcRenderer.invoke('file:convertToMarkdown', filePath),
-  mergeDocuments: (slots: any[], options?: any) => ipcRenderer.invoke('file:mergeDocuments', slots, options),
+  mergeDocuments: (slots: Record<string, unknown>[], options?: Record<string, unknown>) =>
+    ipcRenderer.invoke('file:mergeDocuments', slots, options),
   extractImages: (markdown: string, outputDir: string) => ipcRenderer.invoke('file:extractImages', markdown, outputDir),
 
   // Google Workspace

@@ -1,5 +1,6 @@
 import { ipcMain, app, shell } from 'electron'
-import { google } from 'googleapis'
+import { google, type drive_v3 } from 'googleapis'
+import { OAuth2Client } from 'google-auth-library'
 import { Readable } from 'stream'
 import http from 'http'
 import url from 'url'
@@ -32,7 +33,8 @@ function getCredentialsPath() {
   return path.join(getConfigDir(), 'credentials.json')
 }
 
-let oauth2Client: any = null
+// [P1-15] any → OAuth2Client 型
+let oauth2Client: OAuth2Client | null = null
 
 function ensureConfigDir() {
   const dir = getConfigDir()
@@ -41,24 +43,34 @@ function ensureConfigDir() {
   }
 }
 
-function loadCredentials() {
+// [P1-04] JSON.parse エラーハンドリング
+function loadCredentials(): OAuth2Client | null {
   const credPath = getCredentialsPath()
   if (!fs.existsSync(credPath)) {
     return null
   }
-  const content = fs.readFileSync(credPath, 'utf-8')
-  const credentials = JSON.parse(content)
-  const { client_id, client_secret } = credentials.installed || credentials.web
-  oauth2Client = new google.auth.OAuth2(client_id, client_secret, 'http://localhost:3333/callback')
-  return oauth2Client
+  try {
+    const content = fs.readFileSync(credPath, 'utf-8')
+    const credentials = JSON.parse(content)
+    const { client_id, client_secret } = credentials.installed || credentials.web
+    oauth2Client = new google.auth.OAuth2(client_id, client_secret, 'http://localhost:3333/callback')
+    return oauth2Client
+  } catch (err) {
+    throw new Error(`credentials.json の読み込みに失敗しました: ${err instanceof Error ? err.message : String(err)}`)
+  }
 }
 
 function loadSavedToken(): boolean {
   const tokenPath = getTokenPath()
   if (!oauth2Client || !fs.existsSync(tokenPath)) return false
-  const token = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'))
-  oauth2Client.setCredentials(token)
-  return true
+  try {
+    const token = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'))
+    oauth2Client.setCredentials(token)
+    return true
+  } catch {
+    // トークンファイルが破損している場合は無視して再認証を促す
+    return false
+  }
 }
 
 async function authenticateWithBrowser(): Promise<boolean> {
@@ -68,7 +80,7 @@ async function authenticateWithBrowser(): Promise<boolean> {
   }
 
   return new Promise((resolve, reject) => {
-    const authUrl = oauth2Client.generateAuthUrl({
+    const authUrl = oauth2Client!.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
     })
@@ -82,8 +94,8 @@ async function authenticateWithBrowser(): Promise<boolean> {
           return
         }
 
-        const { tokens } = await oauth2Client.getToken(code)
-        oauth2Client.setCredentials(tokens)
+        const { tokens } = await oauth2Client!.getToken(code)
+        oauth2Client!.setCredentials(tokens)
 
         ensureConfigDir()
         fs.writeFileSync(getTokenPath(), JSON.stringify(tokens))
@@ -98,7 +110,9 @@ async function authenticateWithBrowser(): Promise<boolean> {
       }
     })
 
+    // [P1-07] エラー時にサーバーを確実にクローズ
     server.on('error', (err: NodeJS.ErrnoException) => {
+      server.close()
       if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
         reject(new Error('ポート 3333 が使用中またはアクセス拒否されました。ファイアウォール設定を確認してください。'))
       } else {
@@ -112,6 +126,21 @@ async function authenticateWithBrowser(): Promise<boolean> {
   })
 }
 
+// [P1-15] Google Drive ファイル型
+interface GoogleDriveFile {
+  id: string | null | undefined
+  name: string | null | undefined
+  mimeType: string | null | undefined
+  modifiedTime?: string | null | undefined
+}
+
+// [P1-15] Google Drive ファイルメタデータ型
+interface DriveFileMetadata {
+  name: string
+  mimeType: string
+  parents?: string[]
+}
+
 export function setupGoogleHandlers() {
   ensureConfigDir()
 
@@ -121,160 +150,192 @@ export function setupGoogleHandlers() {
       if (loadSavedToken()) return { success: true, message: '既存のトークンでログインしました' }
       await authenticateWithBrowser()
       return { success: true, message: 'Google アカウントでログインしました' }
-    } catch (err: any) {
-      return { success: false, message: err.message }
+    } catch (err) {
+      return { success: false, message: err instanceof Error ? err.message : String(err) }
     }
   })
 
   ipcMain.handle('google:logout', async () => {
-    const tokenPath = getTokenPath()
-    if (fs.existsSync(tokenPath)) {
-      fs.unlinkSync(tokenPath)
+    try {
+      const tokenPath = getTokenPath()
+      if (fs.existsSync(tokenPath)) {
+        fs.unlinkSync(tokenPath)
+      }
+      oauth2Client = null
+      return { success: true }
+    } catch (err) {
+      throw new Error(`ログアウトエラー: ${err instanceof Error ? err.message : String(err)}`)
     }
-    oauth2Client = null
-    return { success: true }
   })
 
   ipcMain.handle('google:getAuthStatus', async () => {
-    loadCredentials()
-    const isAuthed = loadSavedToken()
-    return { authenticated: isAuthed }
+    try {
+      loadCredentials()
+      const isAuthed = loadSavedToken()
+      return { authenticated: isAuthed }
+    } catch {
+      return { authenticated: false }
+    }
   })
 
+  // [P1-01] IPC ハンドラに try-catch 追加
   ipcMain.handle('google:listFiles', async (_event, folderId?: string) => {
-    if (!oauth2Client) throw new Error('未認証です')
-    const drive = google.drive({ version: 'v3', auth: oauth2Client })
+    try {
+      if (!oauth2Client) throw new Error('未認証です')
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    let query = "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false"
-    if (folderId) {
-      const validId = validateFolderId(folderId)
-      if (validId) query += ` and '${validId}' in parents`
+      let query = "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false"
+      if (folderId) {
+        const validId = validateFolderId(folderId)
+        if (validId) query += ` and '${validId}' in parents`
+      }
+
+      const res = await drive.files.list({
+        q: query,
+        fields: 'files(id, name, modifiedTime, mimeType)',
+        orderBy: 'name',
+        pageSize: 100,
+      })
+
+      return res.data.files || []
+    } catch (err) {
+      throw new Error(`ファイル一覧取得エラー: ${err instanceof Error ? err.message : String(err)}`)
     }
-
-    const res = await drive.files.list({
-      q: query,
-      fields: 'files(id, name, modifiedTime, mimeType)',
-      orderBy: 'name',
-      pageSize: 100,
-    })
-
-    return res.data.files || []
   })
 
   ipcMain.handle('google:listFolders', async () => {
-    if (!oauth2Client) throw new Error('未認証です')
-    const drive = google.drive({ version: 'v3', auth: oauth2Client })
+    try {
+      if (!oauth2Client) throw new Error('未認証です')
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    const res = await drive.files.list({
-      q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
-      fields: 'files(id, name)',
-      orderBy: 'name',
-      pageSize: 100,
-    })
+      const res = await drive.files.list({
+        q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields: 'files(id, name)',
+        orderBy: 'name',
+        pageSize: 100,
+      })
 
-    return res.data.files || []
-  })
-
-  ipcMain.handle('google:downloadDoc', async (_event, fileId: string) => {
-    if (!oauth2Client) throw new Error('未認証です')
-    const drive = google.drive({ version: 'v3', auth: oauth2Client })
-
-    const res = await drive.files.export({
-      fileId,
-      mimeType: 'text/html',
-    })
-
-    const rawHtml = res.data as string
-    const cleanedHtml = cleanGoogleDocsHtml(rawHtml)
-
-    return {
-      markdown: turndown.turndown(cleanedHtml),
-      html: rawHtml,
+      return res.data.files || []
+    } catch (err) {
+      throw new Error(`フォルダ一覧取得エラー: ${err instanceof Error ? err.message : String(err)}`)
     }
   })
 
-  // Google Sheets → Markdown テーブル変換
+  ipcMain.handle('google:downloadDoc', async (_event, fileId: string) => {
+    try {
+      if (!oauth2Client) throw new Error('未認証です')
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
+
+      const res = await drive.files.export({
+        fileId,
+        mimeType: 'text/html',
+      })
+
+      const rawHtml = res.data as string
+      const cleanedHtml = cleanGoogleDocsHtml(rawHtml)
+
+      return {
+        markdown: turndown.turndown(cleanedHtml),
+        html: rawHtml,
+      }
+    } catch (err) {
+      throw new Error(`ドキュメントダウンロードエラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  })
+
   ipcMain.handle('google:downloadSheet', async (_event, fileId: string) => {
-    if (!oauth2Client) throw new Error('未認証です')
-    const drive = google.drive({ version: 'v3', auth: oauth2Client })
+    try {
+      if (!oauth2Client) throw new Error('未認証です')
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    const res = await drive.files.export({
-      fileId,
-      mimeType: 'text/csv',
-    })
+      const res = await drive.files.export({
+        fileId,
+        mimeType: 'text/csv',
+      })
 
-    const csv = res.data as string
-    return {
-      markdown: csvToMarkdownTable(csv),
+      const csv = res.data as string
+      return {
+        markdown: csvToMarkdownTable(csv),
+      }
+    } catch (err) {
+      throw new Error(`スプレッドシートダウンロードエラー: ${err instanceof Error ? err.message : String(err)}`)
     }
   })
 
   ipcMain.handle('google:scanFolder', async (_event, folderId: string) => {
-    if (!oauth2Client) throw new Error('未認証です')
-    const drive = google.drive({ version: 'v3', auth: oauth2Client })
+    try {
+      if (!oauth2Client) throw new Error('未認証です')
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    const res = await drive.files.list({
-      q: `'${validateFolderId(folderId)}' in parents and (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false`,
-      fields: 'files(id, name, modifiedTime, mimeType)',
-      orderBy: 'name',
-    })
+      const res = await drive.files.list({
+        q: `'${validateFolderId(folderId)}' in parents and (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false`,
+        fields: 'files(id, name, modifiedTime, mimeType)',
+        orderBy: 'name',
+      })
 
-    const files = res.data.files || []
-    const slots: Record<string, any[]> = { '起': [], '承': [], '転': [], '結': [], 'unclassified': [] }
+      const files = (res.data.files || []) as GoogleDriveFile[]
+      const slots: Record<string, Array<Record<string, unknown>>> = { '起': [], '承': [], '転': [], '結': [], 'unclassified': [] }
 
-    for (const file of files) {
-      const name = (file.name || '').toLowerCase()
-      let slot: string | null = null
-      if (name.includes('起') || name.includes('intro') || name.includes('opening')) slot = '起'
-      else if (name.includes('承') || name.includes('body') || name.includes('main')) slot = '承'
-      else if (name.includes('転') || name.includes('twist') || name.includes('turn')) slot = '転'
-      else if (name.includes('結') || name.includes('conclusion') || name.includes('ending')) slot = '結'
+      for (const file of files) {
+        const name = (file.name || '').toLowerCase()
+        let slot: string | null = null
+        if (name.includes('起') || name.includes('intro') || name.includes('opening')) slot = '起'
+        else if (name.includes('承') || name.includes('body') || name.includes('main')) slot = '承'
+        else if (name.includes('転') || name.includes('twist') || name.includes('turn')) slot = '転'
+        else if (name.includes('結') || name.includes('conclusion') || name.includes('ending')) slot = '結'
 
-      const isSheet = file.mimeType === 'application/vnd.google-apps.spreadsheet'
+        const isSheet = file.mimeType === 'application/vnd.google-apps.spreadsheet'
 
-      const fileData = {
-        id: file.id,
-        name: file.name,
-        path: isSheet ? `gsheet://${file.id}` : `gdoc://${file.id}`,
-        extension: isSheet ? '.gsheet' : '.gdoc',
-        lastModified: new Date(file.modifiedTime || '').getTime(),
-        isGoogleDoc: !isSheet,
-        isGoogleSheet: isSheet,
-        mimeType: file.mimeType,
+        const fileData = {
+          id: file.id,
+          name: file.name,
+          path: isSheet ? `gsheet://${file.id}` : `gdoc://${file.id}`,
+          extension: isSheet ? '.gsheet' : '.gdoc',
+          lastModified: new Date(file.modifiedTime || '').getTime(),
+          isGoogleDoc: !isSheet,
+          isGoogleSheet: isSheet,
+          mimeType: file.mimeType,
+        }
+
+        slots[slot || 'unclassified'].push(fileData)
       }
 
-      slots[slot || 'unclassified'].push(fileData)
+      return slots
+    } catch (err) {
+      throw new Error(`フォルダスキャンエラー: ${err instanceof Error ? err.message : String(err)}`)
     }
-
-    return slots
   })
 
   ipcMain.handle('google:saveFile', async (_event, content: string, fileName: string, folderId: string) => {
-    if (!oauth2Client) throw new Error('未認証です')
-    const drive = google.drive({ version: 'v3', auth: oauth2Client })
+    try {
+      if (!oauth2Client) throw new Error('未認証です')
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    const fileMetadata: any = {
-      name: fileName.endsWith('.md') ? fileName : `${fileName}.md`,
-      mimeType: 'text/markdown',
-    }
-    if (folderId) {
-      const validId = validateFolderId(folderId)
-      if (validId) fileMetadata.parents = [validId]
-    }
+      const fileMetadata: DriveFileMetadata = {
+        name: fileName.endsWith('.md') ? fileName : `${fileName}.md`,
+        mimeType: 'text/markdown',
+      }
+      if (folderId) {
+        const validId = validateFolderId(folderId)
+        if (validId) fileMetadata.parents = [validId]
+      }
 
-    const stream = new Readable()
-    stream.push(content)
-    stream.push(null)
+      const stream = new Readable()
+      stream.push(content)
+      stream.push(null)
 
-    const res = await drive.files.create({
-      requestBody: fileMetadata,
-      media: { mimeType: 'text/markdown', body: stream },
-      fields: 'id, webViewLink',
-    })
+      const res = await drive.files.create({
+        requestBody: fileMetadata,
+        media: { mimeType: 'text/markdown', body: stream },
+        fields: 'id, webViewLink',
+      })
 
-    return {
-      id: res.data.id,
-      url: res.data.webViewLink,
+      return {
+        id: res.data.id,
+        url: res.data.webViewLink,
+      }
+    } catch (err) {
+      throw new Error(`Google Drive 保存エラー: ${err instanceof Error ? err.message : String(err)}`)
     }
   })
 }

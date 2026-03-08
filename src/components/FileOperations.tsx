@@ -17,7 +17,11 @@ export function FileOperations() {
         <input
           type="text"
           value={outputFileName}
-          onChange={(e) => setOutputFileName(e.target.value)}
+          onChange={(e) => {
+            // [P1-14] 不正文字をサニタイズ
+            const sanitized = e.target.value.replace(/[/\\:*?"<>|]/g, '_')
+            setOutputFileName(sanitized)
+          }}
           className="w-full h-10 px-4 rounded-full border border-[var(--input)] bg-[var(--background)] text-sm text-[var(--foreground)] font-sans placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
           placeholder="output_document.md"
         />

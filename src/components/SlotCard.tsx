@@ -1,4 +1,5 @@
-import type { SlotConfig, SlotType } from '../types'
+import { useState } from 'react'
+import type { SlotConfig } from '../types'
 import { useEditorStore } from '../stores/editorStore'
 
 interface SlotCardProps {
@@ -7,6 +8,8 @@ interface SlotCardProps {
 
 export function SlotCard({ slot }: SlotCardProps) {
   const { removeFileFromSlot, addFileToSlot } = useEditorStore()
+  // [P1-16] classList → React state
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const handleAddFile = async () => {
     const files = await window.electronAPI.openFiles(['docx', 'md', 'html', 'txt'])
@@ -15,38 +18,43 @@ export function SlotCard({ slot }: SlotCardProps) {
     }
   }
 
+  // [P1-10] JSON.parse に try-catch 追加
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    e.currentTarget.classList.remove('ring-2')
+    setIsDragOver(false)
     const data = e.dataTransfer.getData('application/json')
     if (data) {
-      const { file, fromSlot } = JSON.parse(data)
-      if (fromSlot !== slot.type) {
-        const store = useEditorStore.getState()
-        const fromSlotData = store.slots.find(s => s.type === fromSlot)
-        if (fromSlotData) {
-          const idx = fromSlotData.files.findIndex(f => f.path === file.path)
-          if (idx >= 0) {
-            store.removeFileFromSlot(fromSlot, idx)
-            store.addFileToSlot(slot.type, file)
+      try {
+        const { file, fromSlot } = JSON.parse(data)
+        if (fromSlot !== slot.type) {
+          const store = useEditorStore.getState()
+          const fromSlotData = store.slots.find(s => s.type === fromSlot)
+          if (fromSlotData) {
+            const idx = fromSlotData.files.findIndex(f => f.path === file.path)
+            if (idx >= 0) {
+              store.removeFileFromSlot(fromSlot, idx)
+              store.addFileToSlot(slot.type, file)
+            }
           }
         }
+      } catch {
+        // ドラッグデータが不正な場合は無視
       }
     }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
-    e.currentTarget.classList.add('ring-2')
+    setIsDragOver(true)
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
-    e.currentTarget.classList.remove('ring-2')
+    setIsDragOver(false)
   }
 
   return (
     <div
-      className="flex-1 min-w-0 rounded border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden"
+      className={`flex-1 min-w-0 rounded border border-[var(--border)] bg-[var(--card)] shadow-sm overflow-hidden ${isDragOver ? 'ring-2' : ''}`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -69,9 +77,10 @@ export function SlotCard({ slot }: SlotCardProps) {
           <p className="text-xs text-[var(--muted-foreground)] font-sans">ファイルをドロップ</p>
         ) : (
           <div className="flex flex-col gap-1.5">
+            {/* [P1-13] key の改善 */}
             {slot.files.map((file, index) => (
               <div
-                key={file.path}
+                key={`${slot.type}-${index}-${file.path}`}
                 draggable
                 onDragStart={(e) => {
                   e.dataTransfer.setData(

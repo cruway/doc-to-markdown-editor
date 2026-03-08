@@ -27,7 +27,7 @@ function readTextFile(filePath: string): string {
   return fs.readFileSync(filePath, 'utf-8')
 }
 
-async function convertFile(filePath: string): Promise<string> {
+export async function convertFile(filePath: string): Promise<string> {
   // [C-01] Google ドライブファイルはこの関数では処理できない
   if (filePath.startsWith('gdoc://') || filePath.startsWith('gsheet://')) {
     throw new Error(
@@ -51,39 +51,60 @@ async function convertFile(filePath: string): Promise<string> {
   }
 }
 
+interface MergeSlot {
+  type: string
+  files: Array<{ path: string }>
+}
+
+interface MergeOptions {
+  separator?: 'hr' | 'heading' | 'none'
+}
+
 export function setupConverterHandlers() {
+  // [P1-01] IPC ハンドラに try-catch 追加
   ipcMain.handle('file:convertToMarkdown', async (_event, filePath: string) => {
-    return convertFile(filePath)
+    try {
+      return await convertFile(filePath)
+    } catch (err) {
+      throw new Error(`変換エラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
   })
 
-  // [M-02] getSeparator 関数を削除し、インラインで処理
-  ipcMain.handle('file:mergeDocuments', async (_event, slots: any[], options?: any) => {
-    const separator = options?.separator || 'hr'
-    const sections: string[] = []
+  ipcMain.handle('file:mergeDocuments', async (_event, slots: MergeSlot[], options?: MergeOptions) => {
+    try {
+      const separator = options?.separator || 'hr'
+      const sections: string[] = []
 
-    for (const slot of slots) {
-      if (!slot.files || slot.files.length === 0) continue
+      for (const slot of slots) {
+        if (!slot.files || slot.files.length === 0) continue
 
-      const sectionParts: string[] = []
-      for (const file of slot.files) {
-        const md = await convertFile(file.path)
-        sectionParts.push(md)
+        const sectionParts: string[] = []
+        for (const file of slot.files) {
+          const md = await convertFile(file.path)
+          sectionParts.push(md)
+        }
+
+        const sectionContent = sectionParts.join('\n\n')
+
+        if (separator === 'heading') {
+          sections.push(`## ${SLOT_LABELS[slot.type] || slot.type}\n\n${sectionContent}`)
+        } else {
+          sections.push(sectionContent)
+        }
       }
 
-      const sectionContent = sectionParts.join('\n\n')
-
-      if (separator === 'heading') {
-        sections.push(`## ${SLOT_LABELS[slot.type] || slot.type}\n\n${sectionContent}`)
-      } else {
-        sections.push(sectionContent)
-      }
+      const joinSeparator = separator === 'hr' ? '\n\n---\n\n' : '\n\n'
+      return sections.join(joinSeparator)
+    } catch (err) {
+      throw new Error(`統合エラー: ${err instanceof Error ? err.message : String(err)}`)
     }
-
-    const joinSeparator = separator === 'hr' ? '\n\n---\n\n' : '\n\n'
-    return sections.join(joinSeparator)
   })
 
   ipcMain.handle('file:extractImages', async (_event, markdown: string, outputDir: string) => {
-    return extractBase64ImagesFromMarkdown(markdown, outputDir)
+    try {
+      return extractBase64ImagesFromMarkdown(markdown, outputDir)
+    } catch (err) {
+      throw new Error(`画像抽出エラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
   })
 }

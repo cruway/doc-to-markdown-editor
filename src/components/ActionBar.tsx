@@ -65,9 +65,11 @@ export function ActionBar() {
       }
 
       setMergedMarkdown(merged)
-    } catch (err: any) {
+    } catch (err) {
+      // [P1-09] err 型安全化
+      const message = err instanceof Error ? err.message : String(err)
       console.error('Merge failed:', err)
-      alert(`統合エラー: ${err.message}`)
+      alert(`統合エラー: ${message}`)
     } finally {
       setIsMerging(false)
     }
@@ -85,8 +87,9 @@ export function ActionBar() {
         const result = await window.electronAPI.saveFile(mergedMarkdown, outputFileName)
         if (result) alert(`保存しました: ${result}`)
       }
-    } catch (err: any) {
-      alert(`保存エラー: ${err.message}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      alert(`保存エラー: ${message}`)
     } finally {
       setIsSaving(false)
     }
@@ -105,15 +108,15 @@ export function ActionBar() {
 
     setIsSaving(true)
     try {
-      // [H-03] 不要な googleListFolders() 呼び出しを削除
       const result = await window.electronAPI.googleSaveFile(
         mergedMarkdown,
         outputFileName,
         ''
       )
       alert(`Google ドライブに保存しました: ${result.url || result.id}`)
-    } catch (err: any) {
-      alert(`Google ドライブ保存エラー: ${err.message}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      alert(`Google ドライブ保存エラー: ${message}`)
     } finally {
       setIsSaving(false)
     }

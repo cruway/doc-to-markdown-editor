@@ -30,6 +30,10 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit --skipLibCheck
 
+      # [P2-01] テストステップ追加
+      - name: Run tests
+        run: npx vitest run
+
       - name: Build
         run: npx vite build
 
