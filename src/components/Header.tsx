@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useEditorStore } from '../stores/editorStore'
-import type { GoogleDriveFolder } from '../types'
+import type { GoogleDriveFolder, GoogleDriveFileInfo } from '../types'
+
+interface BreadcrumbItem {
+  id: string | undefined
+  name: string
+}
 
 export function Header() {
   const {
@@ -9,8 +14,11 @@ export function Header() {
     isScanning, setIsScanning,
   } = useEditorStore()
 
-  const [folderList, setFolderList] = useState<GoogleDriveFolder[]>([])
-  const [showFolderModal, setShowFolderModal] = useState(false)
+  const [showDriveBrowser, setShowDriveBrowser] = useState(false)
+  const [driveFolders, setDriveFolders] = useState<GoogleDriveFolder[]>([])
+  const [driveFiles, setDriveFiles] = useState<GoogleDriveFileInfo[]>([])
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([])
+  const [isLoadingContents, setIsLoadingContents] = useState(false)
 
   // [P1-11] スキャン中はボタンを無効化
   const handleScanLocalFolder = async () => {
@@ -48,51 +56,67 @@ export function Header() {
     }
   }
 
-  const handleGoogleScan = async () => {
-    setIsScanning(true)
+  const loadFolderContents = async (folderId?: string) => {
+    setIsLoadingContents(true)
     try {
-      // [P1-09] handleGoogleConnect の戻り値で認証結果を判定
-      const authed = await handleGoogleConnect()
-      if (!authed) {
-        setIsScanning(false)
-        return
-      }
-
-      const folders: GoogleDriveFolder[] = await window.electronAPI.googleListFolders()
-      if (folders.length === 0) {
-        alert('Google ドライブにフォルダがありません')
-        setIsScanning(false)
-        return
-      }
-
-      setFolderList(folders)
-      setShowFolderModal(true)
+      const contents = await window.electronAPI.googleBrowseFolderContents(folderId)
+      setDriveFolders(contents.folders)
+      setDriveFiles(contents.files)
     } catch (err) {
-      alert(`Google スキャンエラー: ${err instanceof Error ? err.message : String(err)}`)
-      setIsScanning(false)
-    }
-  }
-
-  const handleFolderSelect = async (folder: GoogleDriveFolder) => {
-    setShowFolderModal(false)
-    try {
-      const result = await window.electronAPI.googleScanFolder(folder.id)
-      const currentSlots = useEditorStore.getState().slots
-      const newSlots = currentSlots.map(slot => ({
-        ...slot,
-        files: [...slot.files, ...(result[slot.type] || [])],
-      }))
-      setSlots(newSlots)
-    } catch (err) {
-      alert(`Google スキャンエラー: ${err instanceof Error ? err.message : String(err)}`)
+      alert(`フォルダ内容取得エラー: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
-      setIsScanning(false)
+      setIsLoadingContents(false)
     }
   }
 
-  const handleFolderModalClose = () => {
-    setShowFolderModal(false)
-    setIsScanning(false)
+  const handleOpenDriveBrowser = async () => {
+    try {
+      const authed = await handleGoogleConnect()
+      if (!authed) return
+
+      setBreadcrumb([{ id: undefined, name: 'マイドライブ' }])
+      await loadFolderContents(undefined)
+      setShowDriveBrowser(true)
+    } catch (err) {
+      alert(`Google スキャンエラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  const handleNavigateToFolder = async (folder: GoogleDriveFolder) => {
+    setBreadcrumb(prev => [...prev, { id: folder.id, name: folder.name }])
+    await loadFolderContents(folder.id)
+  }
+
+  const handleBreadcrumbClick = async (index: number) => {
+    const newBreadcrumb = breadcrumb.slice(0, index + 1)
+    setBreadcrumb(newBreadcrumb)
+    await loadFolderContents(newBreadcrumb[newBreadcrumb.length - 1].id)
+  }
+
+  const handleCloseDriveBrowser = () => {
+    setShowDriveBrowser(false)
+    setDriveFolders([])
+    setDriveFiles([])
+    setBreadcrumb([])
+  }
+
+  const handleFileDragStart = (e: React.DragEvent, file: GoogleDriveFileInfo) => {
+    const isSheet = file.mimeType === 'application/vnd.google-apps.spreadsheet'
+    const localFile = {
+      id: file.id,
+      name: file.name,
+      path: isSheet ? `gsheet://${file.id}` : `gdoc://${file.id}`,
+      extension: isSheet ? '.gsheet' : '.gdoc',
+      lastModified: file.modifiedTime ? new Date(file.modifiedTime).getTime() : 0,
+      isGoogleDoc: !isSheet,
+      isGoogleSheet: isSheet,
+      mimeType: file.mimeType,
+    }
+    e.dataTransfer.setData(
+      'application/json',
+      JSON.stringify({ file: localFile, fromSlot: 'google-drive' })
+    )
+    e.dataTransfer.effectAllowed = 'copy'
   }
 
   return (
@@ -118,7 +142,7 @@ export function Header() {
             </span>
           </button>
           <button
-            onClick={handleGoogleScan}
+            onClick={handleOpenDriveBrowser}
             disabled={isScanning}
             className="no-drag h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono font-medium text-[var(--foreground)] shadow-sm hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
@@ -130,29 +154,92 @@ export function Header() {
         </div>
       </header>
 
-      {showFolderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleFolderModalClose}>
-          <div className="bg-[var(--background)] border border-[var(--border)] rounded-lg shadow-xl w-96 max-h-[60vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      {showDriveBrowser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCloseDriveBrowser}>
+          <div className="bg-[var(--background)] border border-[var(--border)] rounded-lg shadow-xl w-[480px] max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
-              <h2 className="text-sm font-semibold font-mono text-[var(--foreground)]">フォルダを選択</h2>
+              <h2 className="text-sm font-semibold font-mono text-[var(--foreground)]">Google ドライブ</h2>
               <button
-                onClick={handleFolderModalClose}
+                onClick={handleCloseDriveBrowser}
                 className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
               >
                 <span className="material-symbols-sharp text-[18px]">close</span>
               </button>
             </div>
-            <div className="overflow-y-auto p-2">
-              {folderList.map(folder => (
-                <button
-                  key={folder.id}
-                  onClick={() => handleFolderSelect(folder)}
-                  className="w-full text-left px-3 py-2 rounded-md text-sm font-mono text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-sharp text-[16px] text-[var(--muted-foreground)]" style={{ fontVariationSettings: "'wght' 300" }}>folder</span>
-                  {folder.name}
-                </button>
+
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--border)] overflow-x-auto">
+              {breadcrumb.map((item, index) => (
+                <span key={index} className="flex items-center gap-1 flex-shrink-0">
+                  {index > 0 && <span className="text-[var(--muted-foreground)] text-xs">/</span>}
+                  <button
+                    onClick={() => handleBreadcrumbClick(index)}
+                    className={`text-xs font-mono px-1.5 py-0.5 rounded hover:bg-[var(--accent)] transition-colors ${
+                      index === breadcrumb.length - 1
+                        ? 'text-[var(--foreground)] font-semibold'
+                        : 'text-[var(--muted-foreground)]'
+                    }`}
+                  >
+                    {item.name}
+                  </button>
+                </span>
               ))}
+            </div>
+
+            {/* Contents */}
+            <div className="overflow-y-auto flex-1 p-2">
+              {isLoadingContents ? (
+                <div className="flex items-center justify-center py-8">
+                  <span className="text-sm text-[var(--muted-foreground)] font-sans">読み込み中...</span>
+                </div>
+              ) : driveFolders.length === 0 && driveFiles.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <span className="text-sm text-[var(--muted-foreground)] font-sans">このフォルダは空です</span>
+                </div>
+              ) : (
+                <>
+                  {/* Folders */}
+                  {driveFolders.map(folder => (
+                    <button
+                      key={folder.id}
+                      onClick={() => handleNavigateToFolder(folder)}
+                      className="w-full text-left px-3 py-2 rounded-md text-sm font-mono text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-sharp text-[16px] text-amber-500" style={{ fontVariationSettings: "'wght' 300" }}>folder</span>
+                      {folder.name}
+                    </button>
+                  ))}
+
+                  {/* Divider */}
+                  {driveFolders.length > 0 && driveFiles.length > 0 && (
+                    <div className="border-t border-[var(--border)] my-1" />
+                  )}
+
+                  {/* Files (draggable) */}
+                  {driveFiles.map(file => (
+                    <div
+                      key={file.id}
+                      draggable
+                      onDragStart={(e) => handleFileDragStart(e, file)}
+                      className="w-full text-left px-3 py-2 rounded-md text-sm font-mono text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors flex items-center gap-2 cursor-grab active:cursor-grabbing"
+                    >
+                      <span className="material-symbols-sharp text-[16px] text-[var(--muted-foreground)]" style={{ fontVariationSettings: "'wght' 300" }}>
+                        {file.mimeType === 'application/vnd.google-apps.spreadsheet' ? 'table_chart' : 'description'}
+                      </span>
+                      <span className="truncate">{file.name}</span>
+                      <span className="material-symbols-sharp text-[12px] text-[var(--muted-foreground)] ml-auto flex-shrink-0" style={{ fontVariationSettings: "'wght' 200" }}>drag_indicator</span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* Footer hint */}
+            <div className="px-4 py-2 border-t border-[var(--border)]">
+              <p className="text-[11px] text-[var(--muted-foreground)] font-sans">
+                ファイルをスロットにドラッグ＆ドロップして配置できます
+              </p>
             </div>
           </div>
         </div>

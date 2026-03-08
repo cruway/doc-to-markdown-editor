@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   googleGetAuthStatus: () => ipcRenderer.invoke('google:getAuthStatus'),
   googleListFiles: (folderId?: string) => ipcRenderer.invoke('google:listFiles', folderId),
   googleListFolders: () => ipcRenderer.invoke('google:listFolders'),
+  googleBrowseFolderContents: (folderId?: string) => ipcRenderer.invoke('google:browseFolderContents', folderId),
   googleDownloadDoc: (fileId: string) => ipcRenderer.invoke('google:downloadDoc', fileId),
   googleDownloadSheet: (fileId: string) => ipcRenderer.invoke('google:downloadSheet', fileId),
   googleScanFolder: (folderId: string) => ipcRenderer.invoke('google:scanFolder', folderId),

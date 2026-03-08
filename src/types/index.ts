@@ -56,6 +56,7 @@ export interface ElectronAPI {
   googleGetAuthStatus: () => Promise<{ authenticated: boolean }>
   googleListFiles: (folderId?: string) => Promise<GoogleDriveFileInfo[]>
   googleListFolders: () => Promise<GoogleDriveFolder[]>
+  googleBrowseFolderContents: (folderId?: string) => Promise<{ folders: GoogleDriveFolder[]; files: GoogleDriveFileInfo[] }>
   googleDownloadDoc: (fileId: string) => Promise<{ markdown: string; html: string }>
   googleDownloadSheet: (fileId: string) => Promise<{ markdown: string }>
   googleScanFolder: (folderId: string) => Promise<Record<string, LocalFile[]>>

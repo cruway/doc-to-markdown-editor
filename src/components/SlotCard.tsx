@@ -24,7 +24,10 @@ export function SlotCard({ slot }: SlotCardProps) {
     if (data) {
       try {
         const { file, fromSlot } = JSON.parse(data)
-        if (fromSlot !== slot.type) {
+        if (fromSlot === 'google-drive') {
+          // Google Drive からのドロップ — そのまま追加
+          addFileToSlot(slot.type, file)
+        } else if (fromSlot !== slot.type) {
           const store = useEditorStore.getState()
           const fromSlotData = store.slots.find(s => s.type === fromSlot)
           if (fromSlotData) {

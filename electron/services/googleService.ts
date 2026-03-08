@@ -227,6 +227,39 @@ export function setupGoogleHandlers() {
     }
   })
 
+  ipcMain.handle('google:browseFolderContents', async (_event, folderId?: string) => {
+    try {
+      if (!oauth2Client) throw new Error('未認証です')
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
+
+      const parentQuery = folderId
+        ? `'${validateDriveId(folderId, 'フォルダ ID')}' in parents and`
+        : "'root' in parents and"
+
+      const [foldersRes, filesRes] = await Promise.all([
+        drive.files.list({
+          q: `${parentQuery} mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          fields: 'files(id, name)',
+          orderBy: 'name',
+          pageSize: 100,
+        }),
+        drive.files.list({
+          q: `${parentQuery} (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false`,
+          fields: 'files(id, name, modifiedTime, mimeType)',
+          orderBy: 'name',
+          pageSize: 100,
+        }),
+      ])
+
+      return {
+        folders: foldersRes.data.files || [],
+        files: filesRes.data.files || [],
+      }
+    } catch (err) {
+      throw new Error(`フォルダ内容取得エラー: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  })
+
   // [S-001] fileId バリデーション追加
   ipcMain.handle('google:downloadDoc', async (_event, fileId: string) => {
     try {
