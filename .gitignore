@@ -1,4 +1,8 @@
 node_modules/
-.clasp.json
+dist/
+dist-electron/
 .env
 .DS_Store
+*.dmg
+*.exe
+*.AppImage

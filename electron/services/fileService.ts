@@ -1,0 +1,110 @@
+import { ipcMain, dialog } from 'electron'
+import fs from 'fs'
+import path from 'path'
+
+const SUPPORTED_EXTENSIONS = ['.docx', '.md', '.html', '.txt', '.gdoc']
+
+interface LocalFile {
+  path: string
+  name: string
+  extension: string
+  size: number
+  lastModified: number
+}
+
+function classifySlot(fileName: string): '起' | '承' | '転' | '結' | null {
+  const name = fileName.toLowerCase()
+  if (name.includes('起') || name.includes('intro') || name.includes('opening')) return '起'
+  if (name.includes('承') || name.includes('body') || name.includes('main')) return '承'
+  if (name.includes('転') || name.includes('twist') || name.includes('turn')) return '転'
+  if (name.includes('結') || name.includes('conclusion') || name.includes('ending')) return '結'
+  return null
+}
+
+export function setupFileHandlers() {
+  ipcMain.handle('file:scanFolder', async (_event, folderPath: string) => {
+    const slots = {
+      '起': [] as LocalFile[],
+      '承': [] as LocalFile[],
+      '転': [] as LocalFile[],
+      '結': [] as LocalFile[],
+      'unclassified': [] as LocalFile[],
+    }
+
+    const files = fs.readdirSync(folderPath)
+    for (const file of files) {
+      const filePath = path.join(folderPath, file)
+      const stat = fs.statSync(filePath)
+      if (!stat.isFile()) continue
+
+      const ext = path.extname(file).toLowerCase()
+      if (!SUPPORTED_EXTENSIONS.includes(ext)) continue
+
+      const localFile: LocalFile = {
+        path: filePath,
+        name: file,
+        extension: ext,
+        size: stat.size,
+        lastModified: stat.mtimeMs,
+      }
+
+      const slot = classifySlot(file)
+      if (slot) {
+        slots[slot].push(localFile)
+      } else {
+        slots.unclassified.push(localFile)
+      }
+    }
+
+    return slots
+  })
+
+  ipcMain.handle('dialog:openFolder', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'フォルダを選択',
+    })
+    return result.canceled ? null : result.filePaths[0]
+  })
+
+  ipcMain.handle('dialog:openFiles', async (_event, extensions: string[]) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      title: 'ファイルを選択',
+      filters: [
+        { name: 'Documents', extensions: extensions || ['docx', 'md', 'html', 'txt'] },
+      ],
+    })
+
+    if (result.canceled) return []
+
+    return result.filePaths.map((filePath) => {
+      const stat = fs.statSync(filePath)
+      return {
+        path: filePath,
+        name: path.basename(filePath),
+        extension: path.extname(filePath).toLowerCase(),
+        size: stat.size,
+        lastModified: stat.mtimeMs,
+      }
+    })
+  })
+
+  ipcMain.handle('dialog:saveFile', async (_event, content: string, defaultName: string) => {
+    const result = await dialog.showSaveDialog({
+      title: '保存先を選択',
+      defaultPath: defaultName,
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    })
+
+    if (result.canceled || !result.filePath) return null
+
+    fs.writeFileSync(result.filePath, content, 'utf-8')
+    return result.filePath
+  })
+
+  ipcMain.handle('file:saveToPath', async (_event, content: string, filePath: string) => {
+    fs.writeFileSync(filePath, content, 'utf-8')
+    return filePath
+  })
+}
