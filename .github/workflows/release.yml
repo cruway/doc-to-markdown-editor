@@ -44,11 +44,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/**/*.dmg
-            release/**/*.exe
-            release/**/*.zip
-            release/**/*.tar.gz
-          draft: true
+            dist/*.dmg
+            dist/*.exe
+            dist/*.zip
+            dist/*.tar.gz
+          draft: false
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
