@@ -17,6 +17,8 @@ jobs:
             platform: mac
           - os: windows-latest
             platform: win
+          - os: ubuntu-latest
+            platform: linux
 
     runs-on: ${{ matrix.os }}
 
@@ -46,6 +48,7 @@ jobs:
           files: |
             dist/*.dmg
             dist/*.exe
+            dist/*.AppImage
             dist/*.zip
             dist/*.tar.gz
           draft: false

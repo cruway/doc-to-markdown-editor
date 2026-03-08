@@ -1,6 +1,6 @@
 {
   "name": "doc-to-markdown-editor",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Google ドキュメントを起承転結の構成で統合し、Markdownに変換するデスクトップアプリ",
   "main": "dist-electron/main.js",
   "scripts": {
