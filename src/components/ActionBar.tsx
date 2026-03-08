@@ -53,10 +53,13 @@ export function ActionBar() {
       const joinSeparator = separator === 'heading' ? '\n\n' : separator === 'none' ? '\n\n' : '\n\n---\n\n'
       let merged = sections.join(joinSeparator)
 
-      // [H-04] 画像抽出が有効だがフォルダ未指定の場合は警告
+      // [H-04][F-006] 画像抽出が有効だがフォルダ未指定の場合は中断
       if (extractImages && !outputFolderPath) {
         alert('画像を抽出するには、保存先フォルダを指定してください。')
-      } else if (extractImages && outputFolderPath) {
+        setMergedMarkdown(merged) // 画像なしでプレビューは表示
+        return
+      }
+      if (extractImages && outputFolderPath) {
         const result = await window.electronAPI.extractImages(merged, outputFolderPath)
         merged = result.markdown
         if (result.imageCount > 0) {

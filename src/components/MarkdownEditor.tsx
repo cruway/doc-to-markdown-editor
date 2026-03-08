@@ -69,6 +69,7 @@ export function MarkdownEditor() {
 
     return () => {
       view.destroy()
+      viewRef.current = null
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

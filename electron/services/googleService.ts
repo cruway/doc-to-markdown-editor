@@ -9,13 +9,13 @@ import path from 'path'
 import { turndown, cleanGoogleDocsHtml } from './turndownInstance'
 import { csvToMarkdownTable } from './csvParser'
 
-// [M-01] Google Drive API クエリ用 folderId バリデーション
-function validateFolderId(folderId: string): string {
-  if (!folderId) return ''
-  if (!/^[a-zA-Z0-9_-]+$/.test(folderId)) {
-    throw new Error('不正なフォルダ ID です')
+// [M-01] Google Drive API クエリ用 ID バリデーション
+function validateDriveId(id: string, label = 'ID'): string {
+  if (!id) return ''
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    throw new Error(`不正な${label}です`)
   }
-  return folderId
+  return id
 }
 
 const SCOPES = [
@@ -67,8 +67,9 @@ function loadSavedToken(): boolean {
     const token = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'))
     oauth2Client.setCredentials(token)
     return true
-  } catch {
-    // トークンファイルが破損している場合は無視して再認証を促す
+  } catch (err) {
+    // [E-001] トークンファイル破損時はログ出力して再認証を促す
+    console.warn('トークンファイル読み込み失敗（再認証が必要）:', err instanceof Error ? err.message : String(err))
     return false
   }
 }
@@ -186,7 +187,7 @@ export function setupGoogleHandlers() {
 
       let query = "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false"
       if (folderId) {
-        const validId = validateFolderId(folderId)
+        const validId = validateDriveId(folderId, 'フォルダ ID')
         if (validId) query += ` and '${validId}' in parents`
       }
 
@@ -221,9 +222,11 @@ export function setupGoogleHandlers() {
     }
   })
 
+  // [S-001] fileId バリデーション追加
   ipcMain.handle('google:downloadDoc', async (_event, fileId: string) => {
     try {
       if (!oauth2Client) throw new Error('未認証です')
+      validateDriveId(fileId, 'ファイル ID')
       const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
       const res = await drive.files.export({
@@ -246,6 +249,7 @@ export function setupGoogleHandlers() {
   ipcMain.handle('google:downloadSheet', async (_event, fileId: string) => {
     try {
       if (!oauth2Client) throw new Error('未認証です')
+      validateDriveId(fileId, 'ファイル ID')
       const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
       const res = await drive.files.export({
@@ -268,7 +272,7 @@ export function setupGoogleHandlers() {
       const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
       const res = await drive.files.list({
-        q: `'${validateFolderId(folderId)}' in parents and (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false`,
+        q: `'${validateDriveId(folderId, 'フォルダ ID')}' in parents and (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false`,
         fields: 'files(id, name, modifiedTime, mimeType)',
         orderBy: 'name',
       })
@@ -306,9 +310,11 @@ export function setupGoogleHandlers() {
     }
   })
 
+  // [S-002] fileName バリデーション追加
   ipcMain.handle('google:saveFile', async (_event, content: string, fileName: string, folderId: string) => {
     try {
       if (!oauth2Client) throw new Error('未認証です')
+      if (!fileName || /[/\\]/.test(fileName)) throw new Error('不正なファイル名です')
       const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
       const fileMetadata: DriveFileMetadata = {
@@ -316,7 +322,7 @@ export function setupGoogleHandlers() {
         mimeType: 'text/markdown',
       }
       if (folderId) {
-        const validId = validateFolderId(folderId)
+        const validId = validateDriveId(folderId, 'フォルダ ID')
         if (validId) fileMetadata.parents = [validId]
       }
 

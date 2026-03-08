@@ -16,8 +16,9 @@ export default function App() {
       if (status?.authenticated) {
         setGoogleAuthenticated(true)
       }
-    }).catch(() => {
-      // Not authenticated or API not available
+    }).catch((err) => {
+      // [F-002] 認証状態チェック失敗時にログ出力
+      console.warn('Google 認証状態チェック失敗:', err)
     })
   }, [setGoogleAuthenticated])
 

@@ -27,14 +27,6 @@ export interface MergeOptions {
   imageOutputDir?: string
 }
 
-export interface EditorState {
-  slots: SlotConfig[]
-  mergedMarkdown: string
-  outputFileName: string
-  outputFolderPath: string
-  isGoogleAuthenticated: boolean
-}
-
 // [P1-15] Google API 型定義
 export interface GoogleDriveFolder {
   id: string
