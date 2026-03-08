@@ -18,8 +18,12 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 20, y: 20 },
+    ...(process.platform === 'darwin' ? {
+      titleBarStyle: 'hiddenInset' as const,
+      trafficLightPosition: { x: 20, y: 20 },
+    } : {
+      autoHideMenuBar: true,
+    }),
   })
 
   if (process.env.VITE_DEV_SERVER_URL) {

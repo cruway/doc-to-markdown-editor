@@ -1,42 +1,50 @@
-import { ipcMain, BrowserWindow, shell } from 'electron'
+import { ipcMain, app, shell } from 'electron'
 import { google } from 'googleapis'
 import http from 'http'
 import url from 'url'
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/drive.file',
 ]
 
-const CONFIG_DIR = path.join(os.homedir(), '.doc-to-markdown-editor')
-const TOKEN_PATH = path.join(CONFIG_DIR, 'token.json')
-const CREDENTIALS_PATH = path.join(CONFIG_DIR, 'credentials.json')
+function getConfigDir() {
+  return path.join(app.getPath('userData'), 'google-auth')
+}
+function getTokenPath() {
+  return path.join(getConfigDir(), 'token.json')
+}
+function getCredentialsPath() {
+  return path.join(getConfigDir(), 'credentials.json')
+}
 
 let oauth2Client: any = null
 
 function ensureConfigDir() {
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true })
+  const dir = getConfigDir()
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
   }
 }
 
 function loadCredentials() {
-  if (!fs.existsSync(CREDENTIALS_PATH)) {
+  const credPath = getCredentialsPath()
+  if (!fs.existsSync(credPath)) {
     return null
   }
-  const content = fs.readFileSync(CREDENTIALS_PATH, 'utf-8')
+  const content = fs.readFileSync(credPath, 'utf-8')
   const credentials = JSON.parse(content)
-  const { client_id, client_secret, redirect_uris } = credentials.installed || credentials.web
+  const { client_id, client_secret } = credentials.installed || credentials.web
   oauth2Client = new google.auth.OAuth2(client_id, client_secret, 'http://localhost:3333/callback')
   return oauth2Client
 }
 
 function loadSavedToken(): boolean {
-  if (!oauth2Client || !fs.existsSync(TOKEN_PATH)) return false
-  const token = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf-8'))
+  const tokenPath = getTokenPath()
+  if (!oauth2Client || !fs.existsSync(tokenPath)) return false
+  const token = JSON.parse(fs.readFileSync(tokenPath, 'utf-8'))
   oauth2Client.setCredentials(token)
   return true
 }
@@ -44,7 +52,7 @@ function loadSavedToken(): boolean {
 async function authenticateWithBrowser(): Promise<boolean> {
   if (!oauth2Client) {
     const loaded = loadCredentials()
-    if (!loaded) throw new Error('credentials.json が見つかりません。~/.doc-to-markdown-editor/credentials.json を配置してください。')
+    if (!loaded) throw new Error(`credentials.json が見つかりません。${getCredentialsPath()} を配置してください。`)
   }
 
   return new Promise((resolve, reject) => {
@@ -66,7 +74,7 @@ async function authenticateWithBrowser(): Promise<boolean> {
         oauth2Client.setCredentials(tokens)
 
         ensureConfigDir()
-        fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens))
+        fs.writeFileSync(getTokenPath(), JSON.stringify(tokens))
 
         res.end('認証成功！このウィンドウを閉じてアプリに戻ってください。')
         server.close()
@@ -74,6 +82,14 @@ async function authenticateWithBrowser(): Promise<boolean> {
       } catch (err) {
         res.end('認証に失敗しました。')
         server.close()
+        reject(err)
+      }
+    })
+
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE' || err.code === 'EACCES') {
+        reject(new Error('ポート 3333 が使用中またはアクセス拒否されました。ファイアウォール設定を確認してください。'))
+      } else {
         reject(err)
       }
     })
@@ -99,8 +115,9 @@ export function setupGoogleHandlers() {
   })
 
   ipcMain.handle('google:logout', async () => {
-    if (fs.existsSync(TOKEN_PATH)) {
-      fs.unlinkSync(TOKEN_PATH)
+    const tokenPath = getTokenPath()
+    if (fs.existsSync(tokenPath)) {
+      fs.unlinkSync(tokenPath)
     }
     oauth2Client = null
     return { success: true }

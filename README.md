@@ -5,6 +5,7 @@
 ![Electron](https://img.shields.io/badge/Electron-40+-47848F?logo=electron&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
 ---
@@ -44,11 +45,26 @@
 
 ---
 
+## 対応プラットフォーム
+
+| OS | 対応状況 | インストーラー |
+|:---|:---------|:-------------|
+| **macOS** (Intel / Apple Silicon) | 対応 | `.dmg` |
+| **Windows** (x64) | 対応 | `.exe` (NSIS) |
+
+---
+
 ## 必要環境
+
+### リリース版を使う場合
+
+- **macOS** 12 (Monterey) 以上、または **Windows** 10 以上
+- インターネット接続は不要（Google Workspace 連携を使う場合のみ必要）
+
+### ソースからビルドする場合
 
 - **Node.js** 20 以上
 - **npm** 10 以上
-- **OS**: macOS / Windows / Linux
 
 ---
 
@@ -62,7 +78,8 @@
 |:---|:---------|
 | macOS | `Doc-to-Markdown-Editor-x.x.x.dmg` |
 | Windows | `Doc-to-Markdown-Editor-Setup-x.x.x.exe` |
-| Linux | `Doc-to-Markdown-Editor-x.x.x.AppImage` |
+
+> **Windows の注意**: 未署名のアプリのため、初回起動時に SmartScreen の警告が表示される場合があります。「詳細情報」→「実行」で起動できます。
 
 ### ソースからビルド
 
@@ -80,8 +97,9 @@ npm run dev
 # プロダクションビルド
 npm run build
 
-# パッケージング（macOS の場合）
-npm run build:mac
+# パッケージング
+npm run build:mac    # macOS (.dmg)
+npm run build:win    # Windows (.exe)
 ```
 
 ---
@@ -102,7 +120,12 @@ npm run build:mac
 2. 初回はブラウザで Google アカウント認証が開きます
 3. 認証後、Google ドライブ内の Google ドキュメントがスキャンされ、自動分類されます
 
-> **Google Workspace 連携の事前準備**: `~/.doc-to-markdown-editor/credentials.json` に Google Cloud Console で取得した OAuth クライアント認証情報を配置してください。
+> **Google Workspace 連携の事前準備**: アプリの設定フォルダに `credentials.json` を配置してください。
+>
+> | OS | 配置先 |
+> |:---|:-------|
+> | macOS | `~/Library/Application Support/doc-to-markdown-editor/google-auth/credentials.json` |
+> | Windows | `%APPDATA%\doc-to-markdown-editor\google-auth\credentials.json` |
 
 ### 2. 構成の調整
 
@@ -164,13 +187,11 @@ npm run build:mac
 
 1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成
 2. **Google Drive API** と **Google Docs API** を有効化
-3. **OAuth 2.0 クライアント ID** を作成（アプリケーションの種類: デスクトップアプリ）
+3. **OAuth 2.0 クライアント ID** を作成（アプリケーションの種類: **デスクトップアプリ**）
 4. 認証情報の JSON をダウンロード
-5. 以下に配置:
+5. 上記の [配置先](#1-ファイルの取得配置) にファイルを置く
 
-```
-~/.doc-to-markdown-editor/credentials.json
-```
+> **Windows の注意**: ファイアウォールが OAuth コールバック用のポート (3333) をブロックする場合があります。認証が失敗する場合は、Windows ファイアウォールの設定でこのアプリの通信を許可してください。
 
 ---
 
@@ -198,8 +219,23 @@ npm run dev          # 開発サーバー起動（ホットリロード）
 npm run build        # プロダクションビルド
 npm run build:mac    # macOS 用パッケージング (.dmg)
 npm run build:win    # Windows 用パッケージング (.exe)
-npm run build:linux  # Linux 用パッケージング (.AppImage)
 ```
+
+---
+
+## プラットフォーム別の注意事項
+
+### macOS
+
+- macOS ネイティブのタイトルバー統合（信号ボタン対応）
+- `.dmg` を開いてアプリを Applications フォルダにドラッグ
+
+### Windows
+
+- メニューバーは自動で非表示になります
+- 未署名アプリのため、SmartScreen 警告が出る場合があります
+- Google OAuth 認証時にファイアウォールの許可が必要な場合があります
+- `%APPDATA%` 配下に設定ファイルが保存されます
 
 ---
 

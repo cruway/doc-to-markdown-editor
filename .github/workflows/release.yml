@@ -15,8 +15,6 @@ jobs:
         include:
           - os: macos-latest
             platform: mac
-          - os: ubuntu-latest
-            platform: linux
           - os: windows-latest
             platform: win
 
@@ -48,7 +46,6 @@ jobs:
           files: |
             release/**/*.dmg
             release/**/*.exe
-            release/**/*.AppImage
             release/**/*.zip
             release/**/*.tar.gz
           draft: true
