@@ -53,8 +53,10 @@ export function ActionBar() {
       const joinSeparator = separator === 'heading' ? '\n\n' : separator === 'none' ? '\n\n' : '\n\n---\n\n'
       let merged = sections.join(joinSeparator)
 
-      // Extract base64 images if enabled and output folder is set
-      if (extractImages && outputFolderPath) {
+      // [H-04] 画像抽出が有効だがフォルダ未指定の場合は警告
+      if (extractImages && !outputFolderPath) {
+        alert('画像を抽出するには、保存先フォルダを指定してください。')
+      } else if (extractImages && outputFolderPath) {
         const result = await window.electronAPI.extractImages(merged, outputFolderPath)
         merged = result.markdown
         if (result.imageCount > 0) {
@@ -103,7 +105,7 @@ export function ActionBar() {
 
     setIsSaving(true)
     try {
-      const folders = await window.electronAPI.googleListFolders()
+      // [H-03] 不要な googleListFolders() 呼び出しを削除
       const result = await window.electronAPI.googleSaveFile(
         mergedMarkdown,
         outputFileName,

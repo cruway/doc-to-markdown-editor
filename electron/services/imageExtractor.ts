@@ -6,6 +6,8 @@ interface ExtractResult {
   imageCount: number
 }
 
+// [C-03] /gi フラグだが String.replace() 専用のため lastIndex 問題なし。
+// exec() で使用しないこと。
 const BASE64_IMG_REGEX = /<img[^>]*src="data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,([^"]+)"[^>]*>/gi
 
 function getAltText(imgTag: string): string {

@@ -28,6 +28,14 @@ function readTextFile(filePath: string): string {
 }
 
 async function convertFile(filePath: string): Promise<string> {
+  // [C-01] Google ドライブファイルはこの関数では処理できない
+  if (filePath.startsWith('gdoc://') || filePath.startsWith('gsheet://')) {
+    throw new Error(
+      'Google ドライブファイルは file:convertToMarkdown では処理できません。' +
+      'google:downloadDoc または google:downloadSheet を使用してください。'
+    )
+  }
+
   const ext = path.extname(filePath).toLowerCase()
 
   switch (ext) {
@@ -43,23 +51,12 @@ async function convertFile(filePath: string): Promise<string> {
   }
 }
 
-function getSeparator(type: string, slotType?: string): string {
-  switch (type) {
-    case 'heading':
-      return slotType ? `\n\n## ${SLOT_LABELS[slotType] || slotType}\n\n` : '\n\n'
-    case 'none':
-      return '\n\n'
-    case 'hr':
-    default:
-      return '\n\n---\n\n'
-  }
-}
-
 export function setupConverterHandlers() {
   ipcMain.handle('file:convertToMarkdown', async (_event, filePath: string) => {
     return convertFile(filePath)
   })
 
+  // [M-02] getSeparator 関数を削除し、インラインで処理
   ipcMain.handle('file:mergeDocuments', async (_event, slots: any[], options?: any) => {
     const separator = options?.separator || 'hr'
     const sections: string[] = []
@@ -82,7 +79,7 @@ export function setupConverterHandlers() {
       }
     }
 
-    const joinSeparator = separator === 'heading' ? '\n\n' : getSeparator(separator)
+    const joinSeparator = separator === 'hr' ? '\n\n---\n\n' : '\n\n'
     return sections.join(joinSeparator)
   })
 

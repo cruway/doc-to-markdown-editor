@@ -1,8 +1,11 @@
 import { useEditorStore } from '../stores/editorStore'
 
 export function Header() {
-  const { slots, setGoogleAuthenticated, isGoogleAuthenticated } = useEditorStore()
-  const store = useEditorStore.getState()
+  // [M-03] React hooks 経由で最新の state を取得
+  const {
+    slots, setSlots, setOutputFolderPath,
+    isGoogleAuthenticated, setGoogleAuthenticated,
+  } = useEditorStore()
 
   const handleScanLocalFolder = async () => {
     const folder = await window.electronAPI.openFolder()
@@ -10,13 +13,14 @@ export function Header() {
 
     const result = await window.electronAPI.scanFolder(folder)
 
-    // Populate slots with classified files
-    const newSlots = store.slots.map(slot => ({
+    // イベントハンドラ内では getState() で最新値を取得
+    const currentSlots = useEditorStore.getState().slots
+    const newSlots = currentSlots.map(slot => ({
       ...slot,
       files: [...slot.files, ...(result[slot.type] || [])],
     }))
-    store.setSlots(newSlots)
-    store.setOutputFolderPath(folder)
+    setSlots(newSlots)
+    setOutputFolderPath(folder)
   }
 
   const handleGoogleConnect = async () => {
@@ -30,6 +34,7 @@ export function Header() {
     }
   }
 
+  // [M-04] Google Drive フォルダ選択ダイアログ
   const handleGoogleScan = async () => {
     if (!isGoogleAuthenticated) {
       await handleGoogleConnect()
@@ -37,16 +42,32 @@ export function Header() {
     }
 
     const folders = await window.electronAPI.googleListFolders()
-    // Simple: scan all Google Docs (no folder selection for now, could add picker)
-    if (folders.length > 0) {
-      // Ask user to pick a folder would be ideal, for now use first folder or root
-      const result = await window.electronAPI.googleScanFolder(folders[0]?.id || '')
-      const newSlots = useEditorStore.getState().slots.map(slot => ({
-        ...slot,
-        files: [...slot.files, ...(result[slot.type] || [])],
-      }))
-      useEditorStore.getState().setSlots(newSlots)
+    if (folders.length === 0) {
+      alert('Google ドライブにフォルダがありません')
+      return
     }
+
+    const folderNames = folders.map((f: any, i: number) => `${i + 1}. ${f.name}`).join('\n')
+    const input = window.prompt(
+      `スキャンするフォルダを選択してください（番号を入力）:\n${folderNames}`,
+      '1'
+    )
+    if (!input) return
+
+    const idx = parseInt(input, 10) - 1
+    if (isNaN(idx) || idx < 0 || idx >= folders.length) {
+      alert('無効な番号です')
+      return
+    }
+
+    const selectedFolder = folders[idx]
+    const result = await window.electronAPI.googleScanFolder(selectedFolder.id)
+    const currentSlots = useEditorStore.getState().slots
+    const newSlots = currentSlots.map(slot => ({
+      ...slot,
+      files: [...slot.files, ...(result[slot.type] || [])],
+    }))
+    setSlots(newSlots)
   }
 
   return (

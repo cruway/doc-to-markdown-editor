@@ -13,21 +13,21 @@ turndown.use(gfm)
 export function cleanGoogleDocsHtml(html: string): string {
   let cleaned = html
 
-  // font-weight:700 / bold の span を <strong> に正規化（style 除去前に実行）
+  // [H-01] font-weight:700 / bold の span を <strong> に正規化（[\s\S]*? でマルチライン対応）
   cleaned = cleaned.replace(
-    /<span[^>]*style="[^"]*font-weight:\s*(?:700|bold)[^"]*"[^>]*>(.*?)<\/span>/gi,
+    /<span[^>]*style="[^"]*font-weight:\s*(?:700|bold)[^"]*"[^>]*>([\s\S]*?)<\/span>/gi,
     '<strong>$1</strong>'
   )
 
-  // font-style:italic の span を <em> に正規化
+  // [H-01] font-style:italic の span を <em> に正規化
   cleaned = cleaned.replace(
-    /<span[^>]*style="[^"]*font-style:\s*italic[^"]*"[^>]*>(.*?)<\/span>/gi,
+    /<span[^>]*style="[^"]*font-style:\s*italic[^"]*"[^>]*>([\s\S]*?)<\/span>/gi,
     '<em>$1</em>'
   )
 
-  // text-decoration:line-through の span を <del> に正規化
+  // [H-01] text-decoration:line-through の span を <del> に正規化
   cleaned = cleaned.replace(
-    /<span[^>]*style="[^"]*text-decoration:\s*line-through[^"]*"[^>]*>(.*?)<\/span>/gi,
+    /<span[^>]*style="[^"]*text-decoration:\s*line-through[^"]*"[^>]*>([\s\S]*?)<\/span>/gi,
     '<del>$1</del>'
   )
 
@@ -37,12 +37,16 @@ export function cleanGoogleDocsHtml(html: string): string {
   // class 属性を除去
   cleaned = cleaned.replace(/ class="[^"]*"/gi, '')
 
-  // 空の span タグを除去
-  cleaned = cleaned.replace(/<span>(.*?)<\/span>/g, '$1')
+  // [H-02] 空の span タグを再帰的に除去（ネストされた span にも対応）
+  let prev = ''
+  while (prev !== cleaned) {
+    prev = cleaned
+    cleaned = cleaned.replace(/<span>([\s\S]*?)<\/span>/g, '$1')
+  }
 
   // テーブルセル内の <p> タグを除去（turndown のテーブル認識を妨げるため）
-  cleaned = cleaned.replace(/<td([^>]*)>\s*<p[^>]*>(.*?)<\/p>\s*<\/td>/gi, '<td$1>$2</td>')
-  cleaned = cleaned.replace(/<th([^>]*)>\s*<p[^>]*>(.*?)<\/p>\s*<\/th>/gi, '<th$1>$2</th>')
+  cleaned = cleaned.replace(/<td([^>]*)>\s*<p[^>]*>([\s\S]*?)<\/p>\s*<\/td>/gi, '<td$1>$2</td>')
+  cleaned = cleaned.replace(/<th([^>]*)>\s*<p[^>]*>([\s\S]*?)<\/p>\s*<\/th>/gi, '<th$1>$2</th>')
 
   // <thead> がないテーブルの先頭行を <thead> で囲む（turndown-plugin-gfm が要求）
   cleaned = cleaned.replace(

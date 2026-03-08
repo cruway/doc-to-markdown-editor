@@ -1,11 +1,21 @@
 import { ipcMain, app, shell } from 'electron'
 import { google } from 'googleapis'
+import { Readable } from 'stream'
 import http from 'http'
 import url from 'url'
 import fs from 'fs'
 import path from 'path'
 import { turndown, cleanGoogleDocsHtml } from './turndownInstance'
 import { csvToMarkdownTable } from './csvParser'
+
+// [M-01] Google Drive API クエリ用 folderId バリデーション
+function validateFolderId(folderId: string): string {
+  if (!folderId) return ''
+  if (!/^[a-zA-Z0-9_-]+$/.test(folderId)) {
+    throw new Error('不正なフォルダ ID です')
+  }
+  return folderId
+}
 
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
@@ -137,7 +147,8 @@ export function setupGoogleHandlers() {
 
     let query = "(mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false"
     if (folderId) {
-      query += ` and '${folderId}' in parents`
+      const validId = validateFolderId(folderId)
+      if (validId) query += ` and '${validId}' in parents`
     }
 
     const res = await drive.files.list({
@@ -203,7 +214,7 @@ export function setupGoogleHandlers() {
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
     const res = await drive.files.list({
-      q: `'${folderId}' in parents and (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false`,
+      q: `'${validateFolderId(folderId)}' in parents and (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet') and trashed=false`,
       fields: 'files(id, name, modifiedTime, mimeType)',
       orderBy: 'name',
     })
@@ -247,16 +258,10 @@ export function setupGoogleHandlers() {
       mimeType: 'text/markdown',
     }
     if (folderId) {
-      fileMetadata.parents = [folderId]
+      const validId = validateFolderId(folderId)
+      if (validId) fileMetadata.parents = [validId]
     }
 
-    const media = {
-      mimeType: 'text/markdown',
-      body: content,
-    }
-
-    // Use streams for the body
-    const { Readable } = require('stream')
     const stream = new Readable()
     stream.push(content)
     stream.push(null)
