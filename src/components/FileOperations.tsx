@@ -35,7 +35,7 @@ export function FileOperations() {
           type="text"
           value={outputFileName}
           onChange={(e) => setOutputFileName(sanitizeFileName(e.target.value))}
-          className="w-full h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--secondary)] text-sm text-[var(--foreground)] font-sans placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/25 focus:border-[var(--ring)] transition-all duration-200"
+          className="w-full h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm text-[var(--foreground)] font-sans placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/25 focus:border-[var(--ring)] transition-all duration-200"
           placeholder="output_document.md"
         />
       </div>
@@ -45,7 +45,7 @@ export function FileOperations() {
         </label>
         <button
           onClick={handleSelectFolder}
-          className="w-full h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--secondary)] text-sm text-left font-sans truncate hover:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/25 focus:border-[var(--ring)] transition-all duration-200"
+          className="w-full h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm text-left font-sans truncate hover:border-[var(--ring)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/25 focus:border-[var(--ring)] transition-all duration-200"
         >
           <span className={outputFolderPath ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]'}>
             {outputFolderPath || 'フォルダを選択...'}

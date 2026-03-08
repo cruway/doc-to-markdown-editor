@@ -26,7 +26,7 @@ export default function App() {
   return (
     <div className="flex h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Sidebar />
-      <main className="flex-1 flex flex-col gap-6 px-8 pb-8 overflow-y-auto">
+      <main className="flex-1 min-w-0 flex flex-col gap-6 px-8 pb-8 overflow-y-auto">
         {/* Drag region for window title bar */}
         <div className="drag-region h-[52px] flex-shrink-0" />
         <Header />

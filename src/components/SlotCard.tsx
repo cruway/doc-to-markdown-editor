@@ -52,7 +52,7 @@ export function SlotCard({ slot }: SlotCardProps) {
 
   return (
     <div
-      className={`flex flex-col rounded-xl border bg-[var(--card)] shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
+      className={`flex flex-col rounded-lg border bg-[var(--card)] shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
         isDragOver ? 'ring-2 border-transparent' : 'border-[var(--border)]'
       }`}
       onDrop={handleDrop}

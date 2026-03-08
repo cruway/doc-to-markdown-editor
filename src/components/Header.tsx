@@ -99,7 +99,7 @@ export function Header() {
         <button
           onClick={handleScanLocalFolder}
           disabled={isScanning}
-          className="no-drag h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--secondary)] text-sm font-mono font-medium text-[var(--foreground)] shadow-sm hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          className="no-drag h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono font-medium text-[var(--foreground)] shadow-sm hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
           <span className="flex items-center gap-1.5">
             <span className="material-symbols-sharp text-[16px]" style={{ fontVariationSettings: "'wght' 300" }}>folder_open</span>
@@ -109,7 +109,7 @@ export function Header() {
         <button
           onClick={handleGoogleScan}
           disabled={isScanning}
-          className="no-drag h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--secondary)] text-sm font-mono font-medium text-[var(--foreground)] shadow-sm hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          className="no-drag h-10 px-4 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-mono font-medium text-[var(--foreground)] shadow-sm hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
           <span className="flex items-center gap-1.5">
             <span className="material-symbols-sharp text-[16px]" style={{ fontVariationSettings: "'wght' 300" }}>cloud_download</span>

@@ -138,7 +138,7 @@ export function ActionBar() {
       <button
         onClick={handleSaveGoogle}
         disabled={!mergedMarkdown || isSaving}
-        className="h-12 px-6 rounded-full bg-[#E7E8E5] text-sm font-mono font-medium text-[var(--foreground)] hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+        className="h-12 px-6 rounded-full bg-[var(--secondary)] text-sm font-mono font-medium text-[var(--foreground)] hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
       >
         Google ドライブへ保存
       </button>

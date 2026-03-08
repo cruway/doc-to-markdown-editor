@@ -94,7 +94,7 @@ export function MarkdownEditor() {
   return (
     <section className="flex-1 flex flex-col min-h-0">
       {/* Toolbar */}
-      <div className="flex items-center justify-between h-11 px-4 bg-[#E7E8E5] rounded-t-lg border border-[var(--border)]">
+      <div className="flex items-center justify-between h-11 px-4 bg-[var(--secondary)] rounded-t-lg border border-[var(--border)]">
         <span className="text-sm font-semibold text-[var(--foreground)] font-sans">Markdown エディタ</span>
         <div className="flex items-center gap-2">
           <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-[var(--border)] transition-colors" aria-label="Bold">
