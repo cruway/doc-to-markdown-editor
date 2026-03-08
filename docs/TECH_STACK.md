@@ -2,9 +2,9 @@
 
 ## 選定方針
 
-Google ドライブ / Google ドキュメントとの連携が必須要件であり、
-GAS（Google Apps Script）をバックエンドとして利用することで
-OAuth やサービスアカウント管理を最小化する。
+インターネット接続不要で動作するデスクトップアプリケーションとして構築する。
+ローカルファイルシステム上の `.docx`（Google Docs からエクスポート）や
+その他のドキュメントファイルを読み込み、Markdown へ変換・統合する。
 
 ---
 
@@ -12,41 +12,61 @@ OAuth やサービスアカウント管理を最小化する。
 
 | レイヤー | 技術 | 選定理由 |
 |:---------|:-----|:---------|
-| **ランタイム** | Google Apps Script (V8) | Google Workspace との直接連携。デプロイ・ホスティング不要 |
-| **フロントエンド** | HTML5 / CSS3 / Vanilla JS | GAS の `HtmlService` で配信。フレームワーク不要でシンプル |
-| **UI ライブラリ** | Sortable.js (v1.15+) | D&D による並び替え。CDN 経由で読み込み、GAS 環境で動作確認済み |
-| **Markdown エディタ** | CodeMirror 6 (Basic Setup) | 軽量エディタ。Markdown シンタックスハイライト対応 |
-| **Doc → MD 変換** | 独自変換ロジック (GAS) | Google Docs API の構造化データをパースし MD 記法へ変換 |
-| **API** | Google Drive API v3 / Google Docs API v1 | GAS 組み込みサービス (`DriveApp`, `DocumentApp`) + Advanced Services |
-| **テスト** | clasp + Jest (ローカル開発時) | GAS コードのユニットテスト |
-| **開発ツール** | clasp (CLI) | GAS プロジェクトのローカル開発・バージョン管理 |
+| **デスクトップフレームワーク** | Electron 33+ | クロスプラットフォーム対応（Mac/Win/Linux）。Node.js API でファイル操作可能 |
+| **フロントエンド** | React 19 + TypeScript | コンポーネントベースの UI 構築。型安全 |
+| **ビルドツール** | Vite + electron-vite | 高速ビルド。Electron 向け最適化済み |
+| **UI ライブラリ** | Tailwind CSS 4 + shadcn/ui | ユーティリティファーストCSS。デザイントークンとの親和性 |
+| **D&D** | @dnd-kit/core | React 向け D&D ライブラリ。アクセシビリティ対応 |
+| **Markdown エディタ** | CodeMirror 6 | 軽量・高性能。Markdown シンタックスハイライト対応 |
+| **DOCX → MD 変換** | mammoth.js + turndown | `.docx` → HTML → Markdown の2段階変換 |
+| **ファイル操作** | Node.js fs / Electron dialog API | ローカルファイルの読み書き、フォルダ選択ダイアログ |
+| **状態管理** | Zustand | 軽量。ボイラープレート最小 |
+| **テスト** | Vitest + React Testing Library | Vite ネイティブのテストランナー |
+| **パッケージング** | electron-builder | インストーラー生成（.dmg / .exe / .AppImage） |
 
 ---
 
 ## アーキテクチャ概要
 
 ```
-┌─────────────────────────────────────────────────┐
-│              Browser (HtmlService)               │
-│                                                   │
-│  ┌───────────┐  ┌───────────┐  ┌──────────────┐ │
-│  │ Sortable  │  │ CodeMirror│  │  Custom CSS  │ │
-│  │  (D&D)    │  │  (Editor) │  │              │ │
-│  └─────┬─────┘  └─────┬─────┘  └──────────────┘ │
-│        │              │                           │
-│        └──────┬───────┘                           │
-│               │ google.script.run                 │
-├───────────────┼───────────────────────────────────┤
-│               ▼                                   │
-│        Google Apps Script (Server)                │
-│                                                   │
-│  ┌──────────────┐  ┌─────────────────────────┐   │
-│  │  DriveApp /   │  │ Doc-to-Markdown 変換    │   │
-│  │  Drive API v3 │  │ (DocumentApp → MD)      │   │
-│  └──────────────┘  └─────────────────────────┘   │
-│                                                   │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                  Electron App                        │
+│                                                      │
+│  ┌─────────── Renderer Process ──────────────────┐  │
+│  │                                                │  │
+│  │  React + TypeScript                            │  │
+│  │  ┌───────────┐  ┌───────────┐  ┌───────────┐  │  │
+│  │  │ @dnd-kit  │  │ CodeMirror│  │ shadcn/ui │  │  │
+│  │  │  (D&D)    │  │  (Editor) │  │  (UI)     │  │  │
+│  │  └─────┬─────┘  └─────┬─────┘  └───────────┘  │  │
+│  │        └──────┬───────┘                        │  │
+│  │               │ IPC (contextBridge)            │  │
+│  └───────────────┼────────────────────────────────┘  │
+│                  ▼                                    │
+│  ┌─────────── Main Process ──────────────────────┐  │
+│  │                                                │  │
+│  │  Node.js                                       │  │
+│  │  ┌──────────────┐  ┌─────────────────────┐    │  │
+│  │  │ fs / path    │  │ mammoth + turndown  │    │  │
+│  │  │ (ファイル I/O)│  │ (DOCX → MD 変換)   │    │  │
+│  │  └──────────────┘  └─────────────────────┘    │  │
+│  │                                                │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+└──────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 入力ファイル対応
+
+| ファイル形式 | 変換方法 | 優先度 |
+|:-------------|:---------|:-------|
+| `.docx` | mammoth.js → HTML → turndown → MD | Must |
+| `.html` | turndown → MD | Should |
+| `.txt` | そのまま挿入 | Should |
+| `.md` | そのまま挿入 | Must |
+| `.gdoc` (エクスポート済み) | `.docx` として処理 | Should |
 
 ---
 
@@ -54,27 +74,67 @@ OAuth やサービスアカウント管理を最小化する。
 
 | 検討した代替案 | 不採用理由 |
 |:---------------|:-----------|
-| React / Next.js + Google OAuth | GAS で十分。外部ホスティングとOAuth管理が追加コスト |
-| Turndown (HTML→MD) | Google Docs の構造化データから直接変換する方が精度が高い |
-| Monaco Editor | CodeMirror の方が軽量で GAS HtmlService との相性が良い |
-| marked / remark | プレビュー用に将来追加可能。初期スコープでは不要 |
+| Tauri (Rust) | Rust の学習コスト。Node.js エコシステムの mammoth.js 等を直接利用したい |
+| Google Apps Script | オンライン必須。オフライン利用不可 |
+| Python + PyQt | JS/TS エコシステム（CodeMirror, dnd-kit）の方がエディタUI構築に適している |
+| Monaco Editor | CodeMirror の方が軽量。Electron でのバンドルサイズを抑えられる |
+| react-beautiful-dnd | メンテナンス停止。@dnd-kit が後継として推奨 |
 
 ---
 
 ## 開発環境セットアップ
 
 ```bash
-# clasp インストール
-npm install -g @google/clasp
-
-# ログイン
-clasp login
-
 # プロジェクト作成
-clasp create --type webapp --title "Doc-to-Markdown Editor"
+npm create @electron-vite/app@latest doc-to-markdown-editor -- --template react-ts
 
-# ローカル開発
-clasp pull   # GAS → ローカル
-clasp push   # ローカル → GAS
-clasp deploy # デプロイ
+# 依存パッケージ
+npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
+npm install @codemirror/lang-markdown @codemirror/view @codemirror/state
+npm install mammoth turndown
+npm install zustand
+npm install tailwindcss @tailwindcss/vite
+
+# 開発
+npm run dev          # 開発サーバー起動
+npm run build        # ビルド
+npm run preview      # ビルド結果プレビュー
+
+# パッケージング
+npm run build:mac    # macOS (.dmg)
+npm run build:win    # Windows (.exe)
+npm run build:linux  # Linux (.AppImage)
+```
+
+---
+
+## ディレクトリ構成（予定）
+
+```
+doc-to-markdown-editor/
+├── electron/
+│   ├── main.ts              # Electron メインプロセス
+│   ├── preload.ts            # IPC ブリッジ
+│   └── services/
+│       ├── fileService.ts    # ファイル読み書き
+│       └── converter.ts     # DOCX → MD 変換
+├── src/
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── Sidebar.tsx
+│   │   ├── SlotPanel.tsx     # 起承転結スロット
+│   │   ├── SlotCard.tsx      # 個別スロットカード
+│   │   ├── FileOperations.tsx
+│   │   ├── MarkdownEditor.tsx
+│   │   └── ActionBar.tsx
+│   ├── stores/
+│   │   └── editorStore.ts    # Zustand ストア
+│   ├── types/
+│   │   └── index.ts
+│   └── utils/
+│       └── markdown.ts
+├── tests/
+├── docs/
+├── package.json
+└── electron-builder.yml
 ```
