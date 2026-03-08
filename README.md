@@ -226,6 +226,20 @@ cp ~/Downloads/client_secret_XXXXX.json \
 
 > **Windows の注意**: ファイアウォールが OAuth コールバック用のポート (3333) をブロックする場合があります。認証が失敗する場合は、Windows ファイアウォールの設定でこのアプリの通信を許可してください。
 
+### 手順 5: テストユーザーの登録
+
+OAuth 同意画面が **「Testing」** 状態の場合、登録されたテストユーザーのみ認証が可能です。未登録のアカウントでは `403: access_denied` エラーが発生します。
+
+1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
+2. **APIs & Services > OAuth consent screen** に移動
+3. **Test users** セクションで **Add users** をクリック
+4. 使用する Google アカウントのメールアドレスを入力
+5. **Save** をクリック
+
+> テストユーザーは最大 100 名まで追加できます。すべてのユーザーに公開する場合は、同意画面で **Publish App** をクリックして本番モードに切り替えてください（機密スコープ使用時は Google の審査が必要です）。
+
+> 詳細なトラブルシューティングについては [docs/GOOGLE_OAUTH_SETUP.md](docs/GOOGLE_OAUTH_SETUP.md) を参照してください。
+
 ---
 
 ## 対応ファイル形式
