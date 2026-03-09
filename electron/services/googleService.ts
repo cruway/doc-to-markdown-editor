@@ -150,6 +150,58 @@ interface DriveFileMetadata {
 export function setupGoogleHandlers() {
   ensureConfigDir()
 
+  ipcMain.handle('google:getCredentialsStatus', async () => {
+    const credPath = getCredentialsPath()
+    if (!fs.existsSync(credPath)) {
+      return { exists: false, path: credPath }
+    }
+    try {
+      const content = fs.readFileSync(credPath, 'utf-8')
+      const credentials = JSON.parse(content)
+      const creds = credentials.installed || credentials.web
+      if (!creds || !creds.client_id || !creds.client_secret) {
+        return { exists: true, valid: false, path: credPath }
+      }
+      return { exists: true, valid: true, path: credPath, clientId: creds.client_id }
+    } catch {
+      return { exists: true, valid: false, path: credPath }
+    }
+  })
+
+  ipcMain.handle('google:saveCredentials', async (_event, jsonContent: string) => {
+    try {
+      const credentials = JSON.parse(jsonContent)
+      const creds = credentials.installed || credentials.web
+      if (!creds || !creds.client_id || !creds.client_secret) {
+        return { success: false, message: 'credentials.json の形式が不正です（client_id / client_secret が必要）' }
+      }
+      ensureConfigDir()
+      fs.writeFileSync(getCredentialsPath(), jsonContent, 'utf-8')
+      // 既存トークンをクリア（新しい認証情報で再認証が必要）
+      const tokenPath = getTokenPath()
+      if (fs.existsSync(tokenPath)) {
+        fs.unlinkSync(tokenPath)
+      }
+      oauth2Client = null
+      return { success: true, message: 'credentials.json を保存しました' }
+    } catch (err) {
+      return { success: false, message: `保存に失敗しました: ${err instanceof Error ? err.message : String(err)}` }
+    }
+  })
+
+  ipcMain.handle('google:deleteCredentials', async () => {
+    try {
+      const credPath = getCredentialsPath()
+      if (fs.existsSync(credPath)) fs.unlinkSync(credPath)
+      const tokenPath = getTokenPath()
+      if (fs.existsSync(tokenPath)) fs.unlinkSync(tokenPath)
+      oauth2Client = null
+      return { success: true }
+    } catch (err) {
+      return { success: false, message: `削除に失敗しました: ${err instanceof Error ? err.message : String(err)}` }
+    }
+  })
+
   ipcMain.handle('google:auth', async () => {
     try {
       loadCredentials()

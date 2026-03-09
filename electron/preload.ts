@@ -15,6 +15,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('file:mergeDocuments', slots, options),
   extractImages: (markdown: string, outputDir: string) => ipcRenderer.invoke('file:extractImages', markdown, outputDir),
 
+  // Google Credentials
+  googleGetCredentialsStatus: () => ipcRenderer.invoke('google:getCredentialsStatus'),
+  googleSaveCredentials: (jsonContent: string) => ipcRenderer.invoke('google:saveCredentials', jsonContent),
+  googleDeleteCredentials: () => ipcRenderer.invoke('google:deleteCredentials'),
+
   // Google Workspace
   googleAuth: () => ipcRenderer.invoke('google:auth'),
   googleLogout: () => ipcRenderer.invoke('google:logout'),

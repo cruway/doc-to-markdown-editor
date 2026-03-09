@@ -7,14 +7,17 @@ interface BreadcrumbItem {
   name: string
 }
 
-export function Header() {
+interface HeaderProps {
+  onCredentialsMissing: () => void
+}
+
+export function Header({ onCredentialsMissing }: HeaderProps) {
   const {
     slots, setSlots, setOutputFolderPath,
     isGoogleAuthenticated, setGoogleAuthenticated,
     isScanning, setIsScanning,
+    showDriveBrowser, setShowDriveBrowser,
   } = useEditorStore()
-
-  const [showDriveBrowser, setShowDriveBrowser] = useState(false)
   const [driveFolders, setDriveFolders] = useState<GoogleDriveFolder[]>([])
   const [driveFiles, setDriveFiles] = useState<GoogleDriveFileInfo[]>([])
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([])
@@ -45,6 +48,13 @@ export function Header() {
 
   const handleGoogleConnect = async (): Promise<boolean> => {
     if (isGoogleAuthenticated) return true
+
+    // credentials.json の存在チェック
+    const credStatus = await window.electronAPI.googleGetCredentialsStatus()
+    if (!credStatus.exists || !credStatus.valid) {
+      onCredentialsMissing()
+      return false
+    }
 
     const result = await window.electronAPI.googleAuth()
     if (result.success) {
@@ -155,92 +165,93 @@ export function Header() {
       </header>
 
       {showDriveBrowser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCloseDriveBrowser}>
-          <div className="bg-[var(--background)] border border-[var(--border)] rounded-lg shadow-xl w-[480px] max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
-              <h2 className="text-sm font-semibold font-mono text-[var(--foreground)]">Google ドライブ</h2>
-              <button
-                onClick={handleCloseDriveBrowser}
-                className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-              >
-                <span className="material-symbols-sharp text-[18px]">close</span>
-              </button>
-            </div>
+        <div className="fixed top-0 right-0 z-50 h-full w-[320px] flex flex-col bg-[var(--background)] border-l border-[var(--border)] shadow-2xl">
+          {/* Drag region */}
+          <div className="drag-region h-[52px] flex-shrink-0" />
 
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--border)] overflow-x-auto">
-              {breadcrumb.map((item, index) => (
-                <span key={index} className="flex items-center gap-1 flex-shrink-0">
-                  {index > 0 && <span className="text-[var(--muted-foreground)] text-xs">/</span>}
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
+            <h2 className="text-sm font-semibold font-mono text-[var(--foreground)]">Google ドライブ</h2>
+            <button
+              onClick={handleCloseDriveBrowser}
+              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+            >
+              <span className="material-symbols-sharp text-[18px]">close</span>
+            </button>
+          </div>
+
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1 px-4 py-2 border-b border-[var(--border)] overflow-x-auto">
+            {breadcrumb.map((item, index) => (
+              <span key={index} className="flex items-center gap-1 flex-shrink-0">
+                {index > 0 && <span className="text-[var(--muted-foreground)] text-xs">/</span>}
+                <button
+                  onClick={() => handleBreadcrumbClick(index)}
+                  className={`text-xs font-mono px-1.5 py-0.5 rounded hover:bg-[var(--accent)] transition-colors ${
+                    index === breadcrumb.length - 1
+                      ? 'text-[var(--foreground)] font-semibold'
+                      : 'text-[var(--muted-foreground)]'
+                  }`}
+                >
+                  {item.name}
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {/* Contents */}
+          <div className="overflow-y-auto flex-1 p-2">
+            {isLoadingContents ? (
+              <div className="flex items-center justify-center py-8">
+                <span className="text-sm text-[var(--muted-foreground)] font-sans">読み込み中...</span>
+              </div>
+            ) : driveFolders.length === 0 && driveFiles.length === 0 ? (
+              <div className="flex items-center justify-center py-8">
+                <span className="text-sm text-[var(--muted-foreground)] font-sans">このフォルダは空です</span>
+              </div>
+            ) : (
+              <>
+                {/* Folders */}
+                {driveFolders.map(folder => (
                   <button
-                    onClick={() => handleBreadcrumbClick(index)}
-                    className={`text-xs font-mono px-1.5 py-0.5 rounded hover:bg-[var(--accent)] transition-colors ${
-                      index === breadcrumb.length - 1
-                        ? 'text-[var(--foreground)] font-semibold'
-                        : 'text-[var(--muted-foreground)]'
-                    }`}
+                    key={folder.id}
+                    onClick={() => handleNavigateToFolder(folder)}
+                    className="w-full text-left px-3 py-2 rounded-md text-sm font-mono text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors flex items-center gap-2"
                   >
-                    {item.name}
+                    <span className="material-symbols-sharp text-[16px] text-amber-500" style={{ fontVariationSettings: "'wght' 300" }}>folder</span>
+                    <span className="truncate">{folder.name}</span>
                   </button>
-                </span>
-              ))}
-            </div>
+                ))}
 
-            {/* Contents */}
-            <div className="overflow-y-auto flex-1 p-2">
-              {isLoadingContents ? (
-                <div className="flex items-center justify-center py-8">
-                  <span className="text-sm text-[var(--muted-foreground)] font-sans">読み込み中...</span>
-                </div>
-              ) : driveFolders.length === 0 && driveFiles.length === 0 ? (
-                <div className="flex items-center justify-center py-8">
-                  <span className="text-sm text-[var(--muted-foreground)] font-sans">このフォルダは空です</span>
-                </div>
-              ) : (
-                <>
-                  {/* Folders */}
-                  {driveFolders.map(folder => (
-                    <button
-                      key={folder.id}
-                      onClick={() => handleNavigateToFolder(folder)}
-                      className="w-full text-left px-3 py-2 rounded-md text-sm font-mono text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors flex items-center gap-2"
-                    >
-                      <span className="material-symbols-sharp text-[16px] text-amber-500" style={{ fontVariationSettings: "'wght' 300" }}>folder</span>
-                      {folder.name}
-                    </button>
-                  ))}
+                {/* Divider */}
+                {driveFolders.length > 0 && driveFiles.length > 0 && (
+                  <div className="border-t border-[var(--border)] my-1" />
+                )}
 
-                  {/* Divider */}
-                  {driveFolders.length > 0 && driveFiles.length > 0 && (
-                    <div className="border-t border-[var(--border)] my-1" />
-                  )}
+                {/* Files (draggable) */}
+                {driveFiles.map(file => (
+                  <div
+                    key={file.id}
+                    draggable
+                    onDragStart={(e) => handleFileDragStart(e, file)}
+                    className="w-full text-left px-3 py-2 rounded-md text-sm font-mono text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors flex items-center gap-2 cursor-grab active:cursor-grabbing"
+                  >
+                    <span className="material-symbols-sharp text-[16px] text-[var(--muted-foreground)]" style={{ fontVariationSettings: "'wght' 300" }}>
+                      {file.mimeType === 'application/vnd.google-apps.spreadsheet' ? 'table_chart' : 'description'}
+                    </span>
+                    <span className="truncate">{file.name}</span>
+                    <span className="material-symbols-sharp text-[12px] text-[var(--muted-foreground)] ml-auto flex-shrink-0" style={{ fontVariationSettings: "'wght' 200" }}>drag_indicator</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
 
-                  {/* Files (draggable) */}
-                  {driveFiles.map(file => (
-                    <div
-                      key={file.id}
-                      draggable
-                      onDragStart={(e) => handleFileDragStart(e, file)}
-                      className="w-full text-left px-3 py-2 rounded-md text-sm font-mono text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors flex items-center gap-2 cursor-grab active:cursor-grabbing"
-                    >
-                      <span className="material-symbols-sharp text-[16px] text-[var(--muted-foreground)]" style={{ fontVariationSettings: "'wght' 300" }}>
-                        {file.mimeType === 'application/vnd.google-apps.spreadsheet' ? 'table_chart' : 'description'}
-                      </span>
-                      <span className="truncate">{file.name}</span>
-                      <span className="material-symbols-sharp text-[12px] text-[var(--muted-foreground)] ml-auto flex-shrink-0" style={{ fontVariationSettings: "'wght' 200" }}>drag_indicator</span>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-
-            {/* Footer hint */}
-            <div className="px-4 py-2 border-t border-[var(--border)]">
-              <p className="text-[11px] text-[var(--muted-foreground)] font-sans">
-                ファイルをスロットにドラッグ＆ドロップして配置できます
-              </p>
-            </div>
+          {/* Footer hint */}
+          <div className="px-4 py-3 border-t border-[var(--border)]">
+            <p className="text-[11px] text-[var(--muted-foreground)] font-sans">
+              ファイルを左のスロットにドラッグ＆ドロップ
+            </p>
           </div>
         </div>
       )}

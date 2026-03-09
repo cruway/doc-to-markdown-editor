@@ -18,6 +18,7 @@ interface EditorStore {
   isMerging: boolean
   isSaving: boolean
   isScanning: boolean // [P1-11] スキャン中状態
+  showDriveBrowser: boolean
   separator: SeparatorType
   extractImages: boolean
 
@@ -33,6 +34,7 @@ interface EditorStore {
   setIsMerging: (v: boolean) => void
   setIsSaving: (v: boolean) => void
   setIsScanning: (v: boolean) => void
+  setShowDriveBrowser: (v: boolean) => void
   setSeparator: (v: SeparatorType) => void
   setExtractImages: (v: boolean) => void
   resetSlots: () => void
@@ -48,6 +50,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   isMerging: false,
   isSaving: false,
   isScanning: false,
+  showDriveBrowser: false,
   separator: 'hr' as SeparatorType,
   extractImages: false,
 
@@ -89,6 +92,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setIsMerging: (v) => set({ isMerging: v }),
   setIsSaving: (v) => set({ isSaving: v }),
   setIsScanning: (v) => set({ isScanning: v }),
+  setShowDriveBrowser: (v) => set({ showDriveBrowser: v }),
   setSeparator: (v) => set({ separator: v }),
   setExtractImages: (v) => set({ extractImages: v }),
   resetSlots: () => set({ slots: DEFAULT_SLOTS.map(s => ({ ...s, files: [] })) }),

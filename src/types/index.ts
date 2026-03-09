@@ -42,6 +42,13 @@ export interface GoogleDriveFileInfo {
   modifiedTime?: string
 }
 
+export interface CredentialsStatus {
+  exists: boolean
+  valid?: boolean
+  path: string
+  clientId?: string
+}
+
 export interface ElectronAPI {
   scanFolder: (folderPath: string) => Promise<Record<string, LocalFile[]>>
   openFolder: () => Promise<string | null>
@@ -51,6 +58,9 @@ export interface ElectronAPI {
   convertToMarkdown: (filePath: string) => Promise<string>
   mergeDocuments: (slots: SlotConfig[], options?: MergeOptions) => Promise<string>
   extractImages: (markdown: string, outputDir: string) => Promise<{ markdown: string; imageCount: number }>
+  googleGetCredentialsStatus: () => Promise<CredentialsStatus>
+  googleSaveCredentials: (jsonContent: string) => Promise<{ success: boolean; message: string }>
+  googleDeleteCredentials: () => Promise<{ success: boolean; message?: string }>
   googleAuth: () => Promise<{ success: boolean; message: string }>
   googleLogout: () => Promise<{ success: boolean }>
   googleGetAuthStatus: () => Promise<{ authenticated: boolean }>
