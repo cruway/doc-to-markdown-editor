@@ -136,6 +136,13 @@ export function ActionBar() {
         {isMerging ? '統合中...' : '統合実行（プレビュー）'}
       </button>
       <button
+        onClick={handleSaveLocal}
+        disabled={!mergedMarkdown || isSaving}
+        className="h-12 px-6 rounded-full bg-[var(--secondary)] text-sm font-mono font-medium text-[var(--foreground)] hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+      >
+        ローカルに保存
+      </button>
+      <button
         onClick={handleSaveGoogle}
         disabled={!mergedMarkdown || isSaving}
         className="h-12 px-6 rounded-full bg-[var(--secondary)] text-sm font-mono font-medium text-[var(--foreground)] hover:opacity-90 hover:-translate-y-px active:translate-y-0 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
